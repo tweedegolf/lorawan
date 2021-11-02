@@ -1,4 +1,5 @@
 mod packet;
+mod config;
 
 pub use packet::Packet;
 

@@ -11,6 +11,8 @@ embedded-hal = "0.2.6"
 radio = { git = "https://github.com/rust-iot/radio-hal.git", rev = "4d4ec82" }
 
 [features]
+ttn = []
+
 defmt-default = ["defmt"]
 defmt-trace = ["defmt"]
 defmt-debug = ["defmt"]

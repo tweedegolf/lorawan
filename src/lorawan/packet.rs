@@ -1,36 +1,36 @@
-const MAX_PACKET_LENGTH: usize = 256;
+const MAX_PAYLOAD_SIZE: usize = 222;
 
 pub struct Packet {
-    content: [u8; MAX_PACKET_LENGTH],
-    length: usize,
+    payload: [u8; MAX_PAYLOAD_SIZE],
+    size: usize,
 }
 
 impl Packet {
-    pub fn new(bytes: [u8; MAX_PACKET_LENGTH], length: usize) -> Self {
+    pub fn new(payload: [u8; MAX_PAYLOAD_SIZE], size: usize) -> Self {
         Packet {
-            content: bytes,
-            length,
+            payload,
+            size,
         }
     }
 
     pub fn set_length(&mut self, length: usize) {
-        self.length = length;
+        self.size = length;
     }
 
     pub fn content(&self) -> &[u8] {
-        &self.content[0..self.length]
+        &self.payload[0..self.size]
     }
 
     pub fn buf(&mut self) -> &mut [u8] {
-        &mut self.content
+        &mut self.payload
     }
 }
 
 impl Default for Packet {
     fn default() -> Self {
         Packet {
-            content: [0; MAX_PACKET_LENGTH],
-            length: 0,
+            payload: [0; MAX_PAYLOAD_SIZE],
+            size: 0,
         }
     }
 }
