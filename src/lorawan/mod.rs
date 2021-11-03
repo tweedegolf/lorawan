@@ -1,7 +1,8 @@
-mod packet;
 mod config;
+mod packet;
 
-pub use packet::Packet;
+pub use config::*;
+pub use packet::*;
 
 // Everything below should eventually move to radio-hal
 

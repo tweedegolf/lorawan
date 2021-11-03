@@ -1,60 +1,50 @@
-use std::fmt::Debug;
-use std::time::Duration;
+use core::fmt::Debug;
+use core::ops::{Deref, DerefMut};
 
 use embedded_hal::blocking::delay::DelayUs;
 use radio::{Channel, State};
-use radio::blocking::{BlockingError, BlockingOptions, BlockingReceive, BlockingTransmit};
+use radio::blocking::{BlockingError, BlockingReceive, BlockingTransmit};
 
 use crate::constants::{RX1_DELAY, RX2_DELAY};
-use crate::lorawan::{LoRaWANChannel, LoRaWANInfo, LoRaWANState, Packet};
+use crate::device::Device;
+use crate::device::error::DeviceError;
+use crate::lorawan::{LoRaWANChannel, LoRaWANInfo, LoRaWANState, MAX_PAYLOAD_SIZE, Packet, Session};
 
-const INTERVAL: Duration = Duration::from_millis(100);
-const TIMEOUT: Duration = Duration::from_millis(200);
-
-const BLOCKING_OPTIONS: BlockingOptions = BlockingOptions {
-    poll_interval: INTERVAL,
-    timeout: TIMEOUT,
-};
-
-pub struct ClassA<R> {
-    radio: R,
-}
+pub struct ClassA<R>(Device<R, Session>);
 
 impl<R, E> ClassA<R>
     where R: BlockingTransmit<E> + BlockingReceive<LoRaWANInfo, E> + State<State=LoRaWANState, Error=E> + Channel<Channel=LoRaWANChannel, Error=E> + DelayUs<u32>,
           E: Debug
 {
-    /// Transmits `packet` and waits for an optional response
-    pub fn uplink(&mut self, mut packet: Packet) -> Result<Option<Packet>, BlockingError<E>> {
-        self.radio.do_transmit(packet.content(), BLOCKING_OPTIONS)?;
-        self.radio.set_channel(&LoRaWANChannel::RX1)?;
-        self.radio.delay_us(RX1_DELAY.as_micros() as u32);
-        match self.radio.do_receive(packet.buf(), BLOCKING_OPTIONS) {
-            Ok((n, info)) => {
-                packet.set_length(n);
-                Ok(Some(packet))
-            }
-            Err(error) => {
-                match error {
-                    BlockingError::Timeout => {
-                        self.radio.set_channel(&LoRaWANChannel::RX2)?;
-                        self.radio.delay_us((RX2_DELAY - RX1_DELAY - TIMEOUT).as_micros() as u32);
-                        match self.radio.do_receive(packet.buf(), BLOCKING_OPTIONS) {
-                            Ok((n, info)) => {
-                                packet.set_length(n);
-                                Ok(Some(packet))
-                            }
-                            Err(error) => {
-                                match error {
-                                    BlockingError::Timeout => Ok(None),
-                                    error => Err(error)
-                                }
-                            }
-                        }
-                    }
-                    error => Err(error),
-                }
-            }
+    /// Transmits `packet` and waits for an optional response.
+    pub fn uplink(&mut self, packet: Packet) -> Result<Option<Packet>, DeviceError<E>> {
+        let mut buf = [0; MAX_PAYLOAD_SIZE];
+        // TODO: Encrypt
+        match self.simple_uplink(packet.payload(), &mut buf, RX1_DELAY, RX2_DELAY) {
+            // No response
+            Ok((n, _)) => Ok(Some(Packet::new(buf, n))),
+            Err(DeviceError::Blocking(BlockingError::Timeout)) => Ok(None),
+            Err(error) => Err(error)
         }
+    }
+}
+
+impl<R> From<Device<R, Session>> for ClassA<R> {
+    fn from(device: Device<R, Session>) -> Self {
+        ClassA(device)
+    }
+}
+
+impl<R> Deref for ClassA<R> {
+    type Target = Device<R, Session>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<R> DerefMut for ClassA<R> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

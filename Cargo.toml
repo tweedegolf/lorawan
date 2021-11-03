@@ -8,14 +8,15 @@ edition = "2021"
 [dependencies]
 defmt = { version = "0.2.0", optional = true }
 embedded-hal = "0.2.6"
+lorawan-encoding = { git = "https://github.com/ivajloip/rust-lorawan.git", rev = "2c6f155" }
 radio = { git = "https://github.com/rust-iot/radio-hal.git", rev = "4d4ec82" }
 
 [features]
 ttn = []
 
-defmt-default = ["defmt"]
-defmt-trace = ["defmt"]
-defmt-debug = ["defmt"]
-defmt-info = ["defmt"]
-defmt-warn = ["defmt"]
-defmt-error = ["defmt"]
+defmt-default = ["defmt", "lorawan-encoding/defmt-default"]
+defmt-trace = ["defmt", "lorawan-encoding/defmt-trace"]
+defmt-debug = ["defmt", "lorawan-encoding/defmt-debug"]
+defmt-info = ["defmt", "lorawan-encoding/defmt-info"]
+defmt-warn = ["defmt", "lorawan-encoding/defmt-warn"]
+defmt-error = ["defmt", "lorawan-encoding/defmt-error"]
