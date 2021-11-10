@@ -1,4 +1,4 @@
-use crate::radio::LoRaWANChannel;
+use crate::radio::LoRaChannel;
 
 pub type Frequency = u32;
 
@@ -59,11 +59,11 @@ impl Region {
         }
     }
 
-    const fn downlink_frequencies(&self, channel: &LoRaWANChannel) -> &[Frequency] {
+    const fn downlink_frequencies(&self, channel: &LoRaChannel) -> &[Frequency] {
         match self {
             Region::EU868 => match channel {
-                LoRaWANChannel::RX1 => self.uplink_frequencies(),
-                LoRaWANChannel::RX2 => &[869_525_000]
+                LoRaChannel::RX1 => self.uplink_frequencies(),
+                LoRaChannel::RX2 => &[869_525_000]
             }
         }
     }

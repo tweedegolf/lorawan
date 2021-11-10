@@ -4,7 +4,7 @@ use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
 use lorawan_encoding::parser::{DataPayload, EncryptedJoinAcceptPayload, PhyPayload};
 
-use crate::device::{Credentials, Session};
+use crate::device::{Credentials, DeviceState, Session, Settings};
 use crate::lorawan::DevNonce;
 use crate::radio::Frequency;
 
@@ -13,17 +13,18 @@ pub const MAX_PAYLOAD_SIZE: usize = 222;
 pub struct Uplink;
 
 impl Uplink {
-    pub fn new(payload: &[u8], session: &mut Session) -> Self {
+    pub fn new(payload: &[u8], state: &mut DeviceState) -> Self {
+        let session = state.session();
         let mut phy = DataPayloadCreator::new();
         phy.set_confirmed(true);
         phy.set_dev_addr(&<[u8; 4]>::from(session.dev_addr()));
         // phy.set_f_port();
-        phy.set_fcnt(session.fcnt_up());
+        phy.set_fcnt(state.fcnt_up());
         // phy.set_fctrl();
         phy.set_uplink(true);
         let payload = phy.build(payload, &[], &session.nwk_skey().into(), &session.app_skey().into()).unwrap();
 
-        session.increment_fcnt_up();
+        state.increment_fcnt_up();
 
         todo!()
     }
@@ -32,9 +33,10 @@ impl Uplink {
 pub struct Downlink;
 
 impl Downlink {
-    pub fn from_data(data: &mut [u8], session: &mut Session) -> Self {
+    pub fn from_data(data: &mut [u8], state: &mut DeviceState) -> Self {
+        let session = state.session();
         if let Ok(PhyPayload::Data(DataPayload::Encrypted(phy))) = lorawan_encoding::parser::parse(data) {
-            let phy = phy.decrypt(Some(&session.nwk_skey().into()), Some(&session.app_skey().into()), session.fcnt_down());
+            let phy = phy.decrypt(Some(&session.nwk_skey().into()), Some(&session.app_skey().into()), state.fcnt_down());
         }
 
         todo!()
@@ -74,7 +76,7 @@ impl<'a> JoinAccept<'a> {
         Ok(JoinAccept(payload))
     }
 
-    pub fn extract(self, credentials: &Credentials, dev_nonce: &DevNonce) -> (Session, Settings) {
+    pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> DeviceState {
         let app_key = credentials.app_key().clone().into();
         let bytes: [u8; 2] = dev_nonce.into();
         let dev_nonce = (&bytes).into();
@@ -87,7 +89,10 @@ impl<'a> JoinAccept<'a> {
 
         let session = Session::new(dev_addr, nwk_skey, app_skey);
 
-        let rx_delay = payload.rx_delay();
+        let mut settings = Settings::default();
+
+        settings.set_rx_delay(payload.rx_delay());
+
         let dl_settings = payload.dl_settings();
         let cf_list = payload
             .c_f_list()
@@ -100,16 +105,8 @@ impl<'a> JoinAccept<'a> {
             );
         let net_id = payload.net_id();
 
-        let settings = Settings {
-            rx_delay
-        };
-
-        (session, settings)
+        DeviceState::new(session, settings)
     }
-}
-
-pub struct Settings {
-    rx_delay: u8,
 }
 
 #[derive(Debug)]
