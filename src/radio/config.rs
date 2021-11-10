@@ -1,6 +1,6 @@
-use crate::lorawan::LoRaWANChannel;
+use crate::radio::LoRaWANChannel;
 
-type Frequency = u32;
+pub type Frequency = u32;
 
 pub struct Config {
     region: Region,

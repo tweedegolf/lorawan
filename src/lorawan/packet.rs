@@ -1,58 +1,56 @@
 use core::marker::PhantomData;
 
-use lorawan_encoding::creator::JoinRequestCreator;
+use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
-use lorawan_encoding::parser::EncryptedJoinAcceptPayload;
+use lorawan_encoding::parser::{DataPayload, EncryptedJoinAcceptPayload, PhyPayload};
+
+use crate::device::{Credentials, Session};
+use crate::lorawan::DevNonce;
+use crate::radio::Frequency;
 
 pub const MAX_PAYLOAD_SIZE: usize = 222;
 
-pub struct Packet {
-    payload: [u8; MAX_PAYLOAD_SIZE],
-    size: usize,
-}
+pub struct Uplink;
 
-impl Packet {
-    pub fn new(payload: [u8; MAX_PAYLOAD_SIZE], size: usize) -> Self {
-        Packet {
-            payload,
-            size,
-        }
-    }
+impl Uplink {
+    pub fn new(payload: &[u8], session: &mut Session) -> Self {
+        let mut phy = DataPayloadCreator::new();
+        phy.set_confirmed(true);
+        phy.set_dev_addr(&<[u8; 4]>::from(session.dev_addr()));
+        // phy.set_f_port();
+        phy.set_fcnt(session.fcnt_up());
+        // phy.set_fctrl();
+        phy.set_uplink(true);
+        let payload = phy.build(payload, &[], &session.nwk_skey().into(), &session.app_skey().into()).unwrap();
 
-    pub fn set_size(&mut self, length: usize) {
-        self.size = length;
-    }
+        session.increment_fcnt_up();
 
-    pub fn payload(&self) -> &[u8] {
-        &self.payload[0..self.size]
-    }
-
-    pub fn buf(&mut self) -> &mut [u8] {
-        &mut self.payload
+        todo!()
     }
 }
 
-impl Default for Packet {
-    fn default() -> Self {
-        Packet {
-            payload: [0; MAX_PAYLOAD_SIZE],
-            size: 0,
+pub struct Downlink;
+
+impl Downlink {
+    pub fn from_data(data: &mut [u8], session: &mut Session) -> Self {
+        if let Ok(PhyPayload::Data(DataPayload::Encrypted(phy))) = lorawan_encoding::parser::parse(data) {
+            let phy = phy.decrypt(Some(&session.nwk_skey().into()), Some(&session.app_skey().into()), session.fcnt_down());
         }
+
+        todo!()
     }
 }
 
 pub struct JoinRequest([u8; 23]);
 
 impl JoinRequest {
-    pub fn new(credentials: &Credentials, dev_nonce: u16) -> Self {
-        let app_key = credentials.app_key.to_ne_bytes().into();
-        let app_eui = credentials.app_eui.to_ne_bytes();
-        let dev_eui = credentials.dev_eui.to_ne_bytes();
-        let dev_nonce = dev_nonce.to_ne_bytes();
+    pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> Self {
+        let app_key = credentials.app_key().clone().into();
+        let dev_nonce: [u8; 2] = dev_nonce.into();
 
         let mut phy = JoinRequestCreator::new();
-        phy.set_app_eui(&app_eui);
-        phy.set_dev_eui(&dev_eui);
+        phy.set_app_eui(&credentials.app_eui().into());
+        phy.set_dev_eui(&credentials.dev_eui().into());
         phy.set_dev_nonce(&dev_nonce);
         // Despite the return type, build cannot fail
         let payload = phy.build(&app_key).unwrap();
@@ -68,37 +66,50 @@ impl JoinRequest {
     }
 }
 
-pub struct JoinAccept(EncryptedJoinAcceptPayload<[u8; MAX_PAYLOAD_SIZE], DefaultFactory>);
+pub struct JoinAccept<'a>(EncryptedJoinAcceptPayload<&'a mut [u8], DefaultFactory>);
 
-impl JoinAccept {
-    pub fn new<E>(buf: [u8; MAX_PAYLOAD_SIZE]) -> Result<Self, PacketError<E>> {
-        let payload = EncryptedJoinAcceptPayload::new(buf)?;
+impl<'a> JoinAccept<'a> {
+    pub fn from_data<E>(data: &'a mut [u8]) -> Result<Self, PacketError<E>> {
+        let payload = EncryptedJoinAcceptPayload::new(data)?;
         Ok(JoinAccept(payload))
     }
 
-    pub fn extract(self, credentials: &Credentials, dev_nonce: u16) -> Session {
-        let app_key = credentials.app_key.to_ne_bytes().into();
-        let bytes = dev_nonce.to_ne_bytes();
+    pub fn extract(self, credentials: &Credentials, dev_nonce: &DevNonce) -> (Session, Settings) {
+        let app_key = credentials.app_key().clone().into();
+        let bytes: [u8; 2] = dev_nonce.into();
         let dev_nonce = (&bytes).into();
 
         let payload = self.0.decrypt(&app_key);
 
-        let mut buf = [0; 4];
-        buf.copy_from_slice(&payload.dev_addr().as_ref()[0..4]);
-        let dev_addr = u32::from_ne_bytes(buf);
-        let nwk_skey = u128::from_ne_bytes(payload.derive_newskey(&dev_nonce, &app_key).0);
-        let app_skey = u128::from_ne_bytes(payload.derive_appskey(&dev_nonce, &app_key).0);
+        let dev_addr = payload.dev_addr().into();
+        let nwk_skey = payload.derive_newskey(&dev_nonce, &app_key).into();
+        let app_skey = payload.derive_appskey(&dev_nonce, &app_key).into();
 
-        let session = Session {
-            dev_addr,
-            nwk_skey,
-            app_skey,
+        let session = Session::new(dev_addr, nwk_skey, app_skey);
+
+        let rx_delay = payload.rx_delay();
+        let dl_settings = payload.dl_settings();
+        let cf_list = payload
+            .c_f_list()
+            .map(|frequencies| frequencies
+                .map(|frequency| {
+                    let mut buf = [0; 4];
+                    buf[1..3].copy_from_slice(frequency.as_ref());
+                    Frequency::from_le_bytes(buf)
+                })
+            );
+        let net_id = payload.net_id();
+
+        let settings = Settings {
+            rx_delay
         };
 
-        // TODO: Extract settings
-
-        session
+        (session, settings)
     }
+}
+
+pub struct Settings {
+    rx_delay: u8,
 }
 
 #[derive(Debug)]
@@ -112,33 +123,6 @@ impl<E> From<&'static str> for PacketError<E> {
         PacketError {
             error,
             _phantom: PhantomData,
-        }
-    }
-}
-
-/// Credentials needed to join a device to a network. A device that has not joined a network will
-/// use this as state (see [crate::device::Device]).
-pub struct Credentials {
-    app_eui: u64,
-    dev_eui: u64,
-    app_key: u128,
-}
-
-/// Session data for a device joined to a network. It will use this as state (see
-/// [crate::device::Device]).
-pub struct Session {
-    dev_addr: u32,
-    nwk_skey: u128,
-    app_skey: u128,
-}
-
-impl Session {
-    /// Creates a session directly for ABP.
-    pub fn new(dev_addr: u32, nwk_skey: u128, app_skey: u128) -> Self {
-        Session {
-            dev_addr,
-            nwk_skey,
-            app_skey,
         }
     }
 }

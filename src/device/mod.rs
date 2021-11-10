@@ -5,14 +5,15 @@ use embedded_hal::blocking::delay::DelayUs;
 use radio::{Channel, State};
 use radio::blocking::{BlockingError, BlockingOptions, BlockingReceive, BlockingTransmit};
 
-pub use class_a::ClassA;
-
-use crate::constants::{JOIN_ACCEPT_1_DELAY, JOIN_ACCEPT_2_DELAY};
+pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
-use crate::lorawan::{Credentials, JoinAccept, JoinRequest, LoRaWANChannel, LoRaWANInfo, LoRaWANState, MAX_PAYLOAD_SIZE, Session};
+pub use crate::device::session::*;
+use crate::lorawan::{DevNonce, JoinAccept, JoinRequest, MAX_PAYLOAD_SIZE};
+use crate::radio::{JOIN_ACCEPT_1_DELAY, JOIN_ACCEPT_2_DELAY, LoRaWANChannel, LoRaWANInfo, LoRaWANState};
 
 mod class_a;
-mod error;
+pub mod error;
+mod session;
 
 const INTERVAL: Duration = Duration::from_millis(100);
 const TIMEOUT: Duration = Duration::from_millis(200);
@@ -45,15 +46,15 @@ impl<R, E> Device<R, Credentials>
 
     /// Attempts to join this device to a network.
     pub fn join(mut self) -> Result<Device<R, Session>, DeviceError<E>> {
-        let dev_nonce = 37;
+        let dev_nonce = DevNonce::new(37);
 
-        let join_request = JoinRequest::new(&self.state, dev_nonce);
+        let join_request = JoinRequest::new(&self.state, &dev_nonce);
         let mut buf = [0; MAX_PAYLOAD_SIZE];
 
-        let _ = self.simple_uplink(join_request.payload(), &mut buf, JOIN_ACCEPT_1_DELAY, JOIN_ACCEPT_2_DELAY)?;
+        let _ = self.simple_transmit(join_request.payload(), &mut buf, JOIN_ACCEPT_1_DELAY, JOIN_ACCEPT_2_DELAY)?;
 
-        let join_accept = JoinAccept::new(buf)?;
-        let session = join_accept.extract(&self.state, dev_nonce);
+        let join_accept = JoinAccept::from_data(&mut buf)?;
+        let (session, _) = join_accept.extract(&self.state, &dev_nonce);
 
         let device = Device {
             radio: self.radio,
@@ -68,7 +69,8 @@ impl<R, E> Device<R, Session>
     where R: BlockingTransmit<E> + BlockingReceive<LoRaWANInfo, E> + State<State=LoRaWANState, Error=E> + Channel<Channel=LoRaWANChannel, Error=E> + DelayUs<u32>,
           E: Debug
 {
-    /// Creates a joined device through Activation By Personalization.
+    /// Creates a joined device through Activation By Personalization. Consider using [new_otaa]
+    /// instead, as it is more secure.
     pub fn new_abp(radio: R, session: Session) -> Self {
         Device {
             radio,
@@ -87,7 +89,7 @@ impl<R, E, S> Device<R, S>
     where R: BlockingTransmit<E> + BlockingReceive<LoRaWANInfo, E> + State<State=LoRaWANState, Error=E> + Channel<Channel=LoRaWANChannel, Error=E> + DelayUs<u32>,
           E: Debug
 {
-    pub(in crate::device) fn simple_uplink(&mut self, tx: &[u8], rx: &mut [u8], delay_1: Duration, delay_2: Duration) -> Result<(usize, LoRaWANInfo), DeviceError<E>> {
+    pub(in crate::device) fn simple_transmit(&mut self, tx: &[u8], rx: &mut [u8], delay_1: Duration, delay_2: Duration) -> Result<(usize, LoRaWANInfo), DeviceError<E>> {
         self.radio.do_transmit(tx, BLOCKING_OPTIONS)?;
 
         self.radio.set_channel(&LoRaWANChannel::RX1)?;
