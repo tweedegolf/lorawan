@@ -8,8 +8,8 @@ use radio::blocking::{BlockingError, BlockingOptions, BlockingReceive, BlockingT
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
 pub use crate::device::state::*;
-use crate::lorawan::{DevNonce, JoinAccept, JoinRequest, MAX_PAYLOAD_SIZE};
-use crate::radio::{JOIN_ACCEPT_1_DELAY, JOIN_ACCEPT_2_DELAY, LoRaChannel, LoRaInfo, LoRaState};
+use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest, MAX_PAYLOAD_SIZE};
+use crate::radio::{LoRaChannel, LoRaInfo, LoRaState};
 
 mod class_a;
 pub mod error;
@@ -51,7 +51,7 @@ impl<R, E> Device<R, Credentials>
         let join_request = JoinRequest::new(&self.state, &dev_nonce);
         let mut buf = [0; MAX_PAYLOAD_SIZE];
 
-        let _ = self.simple_transmit(join_request.payload(), &mut buf, JOIN_ACCEPT_1_DELAY, JOIN_ACCEPT_2_DELAY)?;
+        let _ = self.simple_transmit(join_request.payload(), &mut buf, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2)?;
 
         let join_accept = JoinAccept::from_data(&mut buf)?;
         let state = join_accept.extract_state(&self.state, &dev_nonce);

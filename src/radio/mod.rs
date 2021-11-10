@@ -1,8 +1,6 @@
 pub use crate::radio::config::*;
-pub use crate::radio::constants::*;
 
 mod config;
-mod constants;
 
 pub struct LoRaState {}
 
