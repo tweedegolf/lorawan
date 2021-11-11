@@ -30,6 +30,7 @@ pub struct DeviceState {
     settings: Settings,
     fcnt_up: u32,
     fcnt_down: u32,
+    adr_ack_cnt: u32,
 }
 
 impl DeviceState {
@@ -39,6 +40,7 @@ impl DeviceState {
             settings,
             fcnt_up: 0,
             fcnt_down: 0,
+            adr_ack_cnt: 0,
         }
     }
 

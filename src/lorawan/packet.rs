@@ -2,31 +2,35 @@ use core::marker::PhantomData;
 
 use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
-use lorawan_encoding::parser::{DataPayload, EncryptedJoinAcceptPayload, PhyPayload};
+use lorawan_encoding::parser::{DataPayload, EncryptedJoinAcceptPayload, FCtrl, PhyPayload};
 
 use crate::device::{Credentials, DeviceState, Session, Settings};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
 use crate::radio::Frequency;
 
-pub const MAX_PAYLOAD_SIZE: usize = 222;
+pub const MAX_PAYLOAD_SIZE: usize = 242;
 
-pub struct Uplink;
+pub struct Uplink([u8; MAX_PAYLOAD_SIZE]);
 
 impl Uplink {
-    pub fn new(payload: &[u8], state: &mut DeviceState) -> Self {
+    pub fn new<E>(payload: &[u8], port: u8, state: &mut DeviceState) -> Result<Self, PacketError<E>> {
         let session = state.session();
+
         let mut phy = DataPayloadCreator::new();
-        phy.set_confirmed(true);
+        phy.set_confirmed(false);
         phy.set_dev_addr(session.dev_addr().as_bytes());
-        // phy.set_f_port();
+        phy.set_f_port(port);
         phy.set_fcnt(state.fcnt_up());
-        // phy.set_fctrl();
+        phy.set_fctrl(&FCtrl::new(0b10000000, true));
         phy.set_uplink(true);
-        let payload = phy.build(payload, &[], &session.nwk_skey().as_bytes().clone().into(), &session.app_skey().as_bytes().clone().into()).unwrap();
+        let payload = phy.build(payload, &[], &session.nwk_skey().as_bytes().clone().into(), &session.app_skey().as_bytes().clone().into())?;
+
+        let mut buf = [0; MAX_PAYLOAD_SIZE];
+        buf[0..payload.len()].copy_from_slice(payload);
 
         state.increment_fcnt_up();
 
-        todo!()
+        Ok(Uplink(buf))
     }
 }
 
@@ -110,16 +114,12 @@ impl<'a> JoinAccept<'a> {
 }
 
 #[derive(Debug)]
-pub struct PacketError<E> {
-    error: &'static str,
-    _phantom: PhantomData<E>,
+pub enum PacketError<E> {
+    Encoding(&'static str, PhantomData<E>),
 }
 
 impl<E> From<&'static str> for PacketError<E> {
     fn from(error: &'static str) -> Self {
-        PacketError {
-            error,
-            _phantom: PhantomData,
-        }
+        PacketError::Encoding(error, PhantomData)
     }
 }
