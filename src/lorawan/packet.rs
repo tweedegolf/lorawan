@@ -5,7 +5,7 @@ use lorawan_encoding::default_crypto::DefaultFactory;
 use lorawan_encoding::parser::{DataPayload, EncryptedJoinAcceptPayload, PhyPayload};
 
 use crate::device::{Credentials, DeviceState, Session, Settings};
-use crate::lorawan::DevNonce;
+use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
 use crate::radio::Frequency;
 
 pub const MAX_PAYLOAD_SIZE: usize = 222;
@@ -17,12 +17,12 @@ impl Uplink {
         let session = state.session();
         let mut phy = DataPayloadCreator::new();
         phy.set_confirmed(true);
-        phy.set_dev_addr(&<[u8; 4]>::from(session.dev_addr()));
+        phy.set_dev_addr(session.dev_addr().as_bytes());
         // phy.set_f_port();
         phy.set_fcnt(state.fcnt_up());
         // phy.set_fctrl();
         phy.set_uplink(true);
-        let payload = phy.build(payload, &[], &session.nwk_skey().into(), &session.app_skey().into()).unwrap();
+        let payload = phy.build(payload, &[], &session.nwk_skey().as_bytes().clone().into(), &session.app_skey().as_bytes().clone().into()).unwrap();
 
         state.increment_fcnt_up();
 
@@ -36,7 +36,7 @@ impl Downlink {
     pub fn from_data(data: &mut [u8], state: &mut DeviceState) -> Self {
         let session = state.session();
         if let Ok(PhyPayload::Data(DataPayload::Encrypted(phy))) = lorawan_encoding::parser::parse(data) {
-            let phy = phy.decrypt(Some(&session.nwk_skey().into()), Some(&session.app_skey().into()), state.fcnt_down());
+            let phy = phy.decrypt(Some(&session.nwk_skey().as_bytes().clone().into()), Some(&session.app_skey().as_bytes().clone().into()), state.fcnt_down());
         }
 
         todo!()
@@ -47,13 +47,12 @@ pub struct JoinRequest([u8; 23]);
 
 impl JoinRequest {
     pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> Self {
-        let app_key = credentials.app_key().clone().into();
-        let dev_nonce: [u8; 2] = dev_nonce.into();
+        let app_key = credentials.app_key().as_bytes().clone().into();
 
         let mut phy = JoinRequestCreator::new();
-        phy.set_app_eui(&credentials.app_eui().into());
-        phy.set_dev_eui(&credentials.dev_eui().into());
-        phy.set_dev_nonce(&dev_nonce);
+        phy.set_app_eui(credentials.app_eui().as_bytes());
+        phy.set_dev_eui(credentials.dev_eui().as_bytes());
+        phy.set_dev_nonce(dev_nonce.as_bytes());
         // Despite the return type, build cannot fail
         let payload = phy.build(&app_key).unwrap();
 
@@ -77,15 +76,16 @@ impl<'a> JoinAccept<'a> {
     }
 
     pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> DeviceState {
-        let app_key = credentials.app_key().clone().into();
-        let bytes: [u8; 2] = dev_nonce.into();
-        let dev_nonce = (&bytes).into();
+        let app_key = credentials.app_key().as_bytes().clone().into();
+        let dev_nonce = dev_nonce.as_bytes().into();
 
         let payload = self.0.decrypt(&app_key);
 
-        let dev_addr = payload.dev_addr().into();
-        let nwk_skey = payload.derive_newskey(&dev_nonce, &app_key).into();
-        let app_skey = payload.derive_appskey(&dev_nonce, &app_key).into();
+        let mut bytes = [0; 4];
+        bytes.copy_from_slice(payload.dev_addr().as_ref());
+        let dev_addr = DevAddr::from_bytes(bytes);
+        let nwk_skey = NwkSKey::from_bytes(payload.derive_newskey(&dev_nonce, &app_key).0);
+        let app_skey = AppSKey::from_bytes(payload.derive_appskey(&dev_nonce, &app_key).0);
 
         let session = Session::new(dev_addr, nwk_skey, app_skey);
 
