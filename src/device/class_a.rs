@@ -6,7 +6,7 @@ use radio::blocking::{BlockingError, BlockingReceive, BlockingTransmit};
 
 use crate::device::{Device, DeviceState};
 use crate::device::error::DeviceError;
-use crate::lorawan::{RECEIVE_DELAY1, RECEIVE_DELAY2};
+use crate::lorawan::{Downlink, RECEIVE_DELAY1, RECEIVE_DELAY2, Uplink};
 use crate::radio::{LoRaChannel, LoRaInfo, LoRaState};
 
 pub struct ClassA<R>(Device<R, DeviceState>);
@@ -19,10 +19,11 @@ impl<R, E> ClassA<R>
     /// and packet information if applicable. This takes care of encryption and decryption, timing,
     /// and which channels to listen from.
     pub fn transmit(&mut self, tx: &[u8], rx: &mut [u8]) -> Result<Option<(usize, LoRaInfo)>, DeviceError<E>> {
-        // TODO: Encrypt
-        match self.0.simple_transmit(tx, rx, RECEIVE_DELAY1, RECEIVE_DELAY2) {
+        let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
+        match self.0.simple_transmit(uplink.as_bytes(), rx, RECEIVE_DELAY1, RECEIVE_DELAY2) {
             Ok((n, info)) => {
-                // TODO: decrypt
+                let downlink = Downlink::from_data(rx, &mut self.0.state)?;
+                rx.copy_from_slice(downlink.as_bytes());
                 Ok(Some((n, info)))
             }
             Err(DeviceError::Blocking(BlockingError::Timeout)) => Ok(None),

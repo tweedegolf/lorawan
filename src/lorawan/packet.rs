@@ -2,7 +2,8 @@ use core::marker::PhantomData;
 
 use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
-use lorawan_encoding::parser::{DataPayload, EncryptedJoinAcceptPayload, FCtrl, PhyPayload};
+use lorawan_encoding::maccommands::MacCommand;
+use lorawan_encoding::parser::{DataHeader, DataPayload, EncryptedJoinAcceptPayload, FCtrl, FRMPayload, MHDRAble, PhyPayload};
 
 use crate::device::{Credentials, DeviceState, Session, Settings};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
@@ -10,11 +11,13 @@ use crate::radio::Frequency;
 
 pub const MAX_PAYLOAD_SIZE: usize = 242;
 
-pub struct Uplink([u8; MAX_PAYLOAD_SIZE]);
+pub struct Uplink([u8; MAX_PAYLOAD_SIZE], usize);
 
 impl Uplink {
     pub fn new<E>(payload: &[u8], port: u8, state: &mut DeviceState) -> Result<Self, PacketError<E>> {
         let session = state.session();
+        let nwk_skey = session.nwk_skey().as_bytes().clone().into();
+        let app_skey = session.app_skey().as_bytes().clone().into();
 
         let mut phy = DataPayloadCreator::new();
         phy.set_confirmed(false);
@@ -23,27 +26,86 @@ impl Uplink {
         phy.set_fcnt(state.fcnt_up());
         phy.set_fctrl(&FCtrl::new(0b10000000, true));
         phy.set_uplink(true);
-        let payload = phy.build(payload, &[], &session.nwk_skey().as_bytes().clone().into(), &session.app_skey().as_bytes().clone().into())?;
+        let payload = phy.build(payload, &[], &nwk_skey, &app_skey)?;
 
         let mut buf = [0; MAX_PAYLOAD_SIZE];
         buf[0..payload.len()].copy_from_slice(payload);
 
         state.increment_fcnt_up();
 
-        Ok(Uplink(buf))
+        Ok(Uplink(buf, payload.len()))
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0[..self.1]
     }
 }
 
-pub struct Downlink;
+pub struct Downlink([u8; MAX_PAYLOAD_SIZE], usize);
 
 impl Downlink {
-    pub fn from_data(data: &mut [u8], state: &mut DeviceState) -> Self {
+    pub fn from_data<E>(data: &mut [u8], state: &mut DeviceState) -> Result<Self, PacketError<E>> {
         let session = state.session();
-        if let Ok(PhyPayload::Data(DataPayload::Encrypted(phy))) = lorawan_encoding::parser::parse(data) {
-            let phy = phy.decrypt(Some(&session.nwk_skey().as_bytes().clone().into()), Some(&session.app_skey().as_bytes().clone().into()), state.fcnt_down());
-        }
+        let nwk_skey = session.nwk_skey().as_bytes().clone().into();
+        let app_skey = session.app_skey().as_bytes().clone().into();
 
-        todo!()
+        if let PhyPayload::Data(DataPayload::Encrypted(phy)) = lorawan_encoding::parser::parse(data)? {
+            let phy = phy
+                .decrypt_if_mic_ok(&nwk_skey, &app_skey, state.fcnt_down())
+                .map_err(|_| PacketError::MICMismatch)?;
+
+            let mhdr = phy.mhdr();
+            let fhdr = phy.fhdr();
+            let f_port = phy.f_port();
+            let frm_payload = phy.frm_payload();
+            match f_port {
+                None => {
+                    // No FPort, hence no payload
+                    todo!()
+                }
+                Some(port) => {
+                    match port {
+                        0 => {
+                            // MAC Commands
+                            if let Ok(FRMPayload::MACCommands(macs)) = frm_payload {
+                                for mac in macs.mac_commands() {
+                                    match mac {
+                                        MacCommand::LinkCheckAns(_) => {}
+                                        MacCommand::LinkADRReq(_) => {}
+                                        MacCommand::DutyCycleReq(_) => {}
+                                        MacCommand::RXParamSetupReq(_) => {}
+                                        MacCommand::DevStatusReq(_) => {}
+                                        MacCommand::NewChannelReq(_) => {}
+                                        MacCommand::RXTimingSetupReq(_) => {}
+                                        _ => return Err(PacketError::InvalidDownlinkMACCommand)
+                                    }
+                                }
+                                todo!()
+                            } else {
+                                Err(PacketError::InvalidMACPort)
+                            }
+                        }
+                        port if (1..=223).contains(&port) => {
+                            // Application data
+                            todo!()
+                        }
+                        224 => {
+                            // Reserved
+                            todo!()
+                        }
+                        port => {
+                            Err(PacketError::InvalidPort(port))
+                        }
+                    }
+                }
+            }
+        } else {
+            Err(PacketError::Encoding("", PhantomData))
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0[..self.1]
     }
 }
 
@@ -115,6 +177,10 @@ impl<'a> JoinAccept<'a> {
 
 #[derive(Debug)]
 pub enum PacketError<E> {
+    InvalidDownlinkMACCommand,
+    MICMismatch,
+    InvalidPort(u8),
+    InvalidMACPort,
     Encoding(&'static str, PhantomData<E>),
 }
 
