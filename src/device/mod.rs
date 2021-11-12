@@ -2,8 +2,8 @@ use core::fmt::Debug;
 use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
-use radio::{Channel, State};
-use radio::blocking::{BlockingError, BlockingOptions, BlockingReceive, BlockingTransmit};
+use radio::{Busy, Channel, Receive, State, Transmit};
+use radio::blocking::BlockingError;
 
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
@@ -15,14 +15,6 @@ mod class_a;
 pub mod error;
 mod state;
 
-const INTERVAL: Duration = Duration::from_millis(100);
-const TIMEOUT: Duration = Duration::from_millis(200);
-
-const BLOCKING_OPTIONS: BlockingOptions = BlockingOptions {
-    poll_interval: INTERVAL,
-    timeout: TIMEOUT,
-};
-
 /// Represents a generic LoRaWAN device. The state can be either [Credentials] for
 /// devices that have not joined a network, or [DeviceState] for devices that have.
 pub struct Device<R, S> {
@@ -31,7 +23,7 @@ pub struct Device<R, S> {
 }
 
 impl<R, E> Device<R, Credentials>
-    where R: BlockingTransmit<E> + BlockingReceive<LoRaInfo, E> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
           E: Debug
 {
     /// Creates a new LoRaWAN device through Over-The-Air-Activation. It must join a network with
@@ -66,7 +58,7 @@ impl<R, E> Device<R, Credentials>
 }
 
 impl<R, E> Device<R, DeviceState>
-    where R: BlockingTransmit<E> + BlockingReceive<LoRaInfo, E> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
           E: Debug
 {
     /// Creates a joined device through Activation By Personalization. Consider using [new_otaa]
@@ -88,23 +80,72 @@ impl<R, E> Device<R, DeviceState>
 }
 
 impl<R, E, S> Device<R, S>
-    where R: BlockingTransmit<E> + BlockingReceive<LoRaInfo, E> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
           E: Debug
 {
+    /// The time the radio will listen for a message on a channel. This must be long enough for the
+    /// radio to receive a preamble, in which case it will continue listening for the message. It must
+    /// not exceed one second, because the radio must switch to RX2 within that time if it does not
+    /// receive a message on RX1.
+    const TIMEOUT: Duration = Duration::from_millis(500);
+
+    /// How often the radio will check whether a message has been received completely or not.
+    const INTERVAL: Duration = Duration::from_millis(100);
+
+    /// Basic LoRaWAN transmit. It transmits `tx`, then waits for a response on RX1, and if it does
+    /// not receive anything, it waits for a response on RX2. The response is stored in `rx`. If no
+    /// response is received, this method returns a timeout error.
     pub(in crate::device) fn simple_transmit(&mut self, tx: &[u8], rx: &mut [u8], delay_1: Duration, delay_2: Duration) -> Result<(usize, LoRaInfo), DeviceError<E>> {
-        self.radio.do_transmit(tx, BLOCKING_OPTIONS)?;
+        self.transmit(tx)?;
 
         self.radio.set_channel(&LoRaChannel::RX1)?;
         self.radio.delay_us(delay_1.as_micros() as u32);
 
-        match self.radio.do_receive(rx, BLOCKING_OPTIONS) {
+        match self.receive(rx) {
             Err(BlockingError::Timeout) => {
                 self.radio.set_channel(&LoRaChannel::RX2)?;
-                self.radio.delay_us((delay_2 - delay_1 - TIMEOUT).as_micros() as u32);
+                self.radio.delay_us((delay_2 - delay_1 - Self::TIMEOUT).as_micros() as u32);
 
-                self.radio.do_receive(rx, BLOCKING_OPTIONS).map_err(|e| e.into())
+                self.receive(rx).map_err(|e| e.into())
             }
             result => result.map_err(|e| e.into())
+        }
+    }
+
+    fn transmit(&mut self, data: &[u8]) -> Result<(), BlockingError<E>> {
+        self.radio.start_transmit(data)?;
+
+        let mut time = 0;
+        loop {
+            self.radio.delay_us(Self::INTERVAL.as_micros() as u32);
+
+            if self.radio.check_transmit()? {
+                return Ok(());
+            }
+
+            time += Self::INTERVAL.as_micros();
+            if time > Self::TIMEOUT.as_micros() {
+                return Err(BlockingError::Timeout);
+            }
+        }
+    }
+
+    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), BlockingError<E>> {
+        self.radio.start_receive()?;
+
+        let mut time = 0;
+        loop {
+            self.radio.delay_us(Self::INTERVAL.as_micros() as u32);
+
+            if self.radio.check_receive(false)? {
+                let (n, i) = self.radio.get_received(buf)?;
+                return Ok((n, i));
+            }
+
+            time += Self::INTERVAL.as_micros();
+            if time > Self::TIMEOUT.as_micros() && !self.radio.is_busy()? {
+                return Err(BlockingError::Timeout);
+            }
         }
     }
 }
