@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 defmt = { version = "0.2.0", optional = true }
 embedded-hal = "0.2.6"
-lorawan-encoding = { git = "https://github.com/ivajloip/rust-lorawan.git", rev = "2c6f155" }
-radio = { git = "https://github.com/rust-iot/radio-hal.git", rev = "4d4ec82" }
+lorawan-encoding = { git = "https://github.com/ivajloip/rust-lorawan.git", rev = "2c6f155", default-features = false, features = ["default-crypto"] }
+radio = { git = "https://github.com/rust-iot/radio-hal.git" }
 
 [features]
 ttn = []
