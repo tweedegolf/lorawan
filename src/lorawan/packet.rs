@@ -5,9 +5,9 @@ use lorawan_encoding::default_crypto::DefaultFactory;
 use lorawan_encoding::maccommands::MacCommand;
 use lorawan_encoding::parser::{DataHeader, DataPayload, EncryptedJoinAcceptPayload, FCtrl, FRMPayload, MHDRAble, PhyPayload};
 
-use crate::device::{Credentials, DeviceState, Session, Settings};
+use crate::device::{Credentials, DeviceState, Session};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
-use crate::radio::Frequency;
+use crate::radio::{Frequency, LoRaState};
 
 pub const MAX_PAYLOAD_SIZE: usize = 242;
 
@@ -16,8 +16,8 @@ pub struct Uplink([u8; MAX_PAYLOAD_SIZE], usize);
 impl Uplink {
     pub fn new<E>(payload: &[u8], port: u8, state: &mut DeviceState) -> Result<Self, PacketError<E>> {
         let session = state.session();
-        let nwk_skey = session.nwk_skey().as_bytes().clone().into();
-        let app_skey = session.app_skey().as_bytes().clone().into();
+        let nwk_skey = (*session.nwk_skey().as_bytes()).into();
+        let app_skey = (*session.app_skey().as_bytes()).into();
 
         let mut phy = DataPayloadCreator::new();
         phy.set_confirmed(false);
@@ -46,8 +46,8 @@ pub struct Downlink([u8; MAX_PAYLOAD_SIZE], usize);
 impl Downlink {
     pub fn from_data<E>(data: &mut [u8], state: &mut DeviceState) -> Result<Self, PacketError<E>> {
         let session = state.session();
-        let nwk_skey = session.nwk_skey().as_bytes().clone().into();
-        let app_skey = session.app_skey().as_bytes().clone().into();
+        let nwk_skey = (*session.nwk_skey().as_bytes()).into();
+        let app_skey = (*session.app_skey().as_bytes()).into();
 
         if let PhyPayload::Data(DataPayload::Encrypted(phy)) = lorawan_encoding::parser::parse(data)? {
             let phy = phy
@@ -113,7 +113,7 @@ pub struct JoinRequest([u8; 23]);
 
 impl JoinRequest {
     pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> Self {
-        let app_key = credentials.app_key().as_bytes().clone().into();
+        let app_key = (*credentials.app_key().as_bytes()).into();
 
         let mut phy = JoinRequestCreator::new();
         phy.set_app_eui(credentials.app_eui().as_bytes());
@@ -141,8 +141,8 @@ impl<'a> JoinAccept<'a> {
         Ok(JoinAccept(payload))
     }
 
-    pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> DeviceState {
-        let app_key = credentials.app_key().as_bytes().clone().into();
+    pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> (DeviceState, LoRaState) {
+        let app_key = (*credentials.app_key().as_bytes()).into();
         let dev_nonce = dev_nonce.as_bytes().into();
 
         let payload = self.0.decrypt(&app_key);
@@ -155,9 +155,9 @@ impl<'a> JoinAccept<'a> {
 
         let session = Session::new(dev_addr, nwk_skey, app_skey);
 
-        let mut settings = Settings::default();
+        let mut state = LoRaState::default();
 
-        settings.set_rx_delay(payload.rx_delay());
+        state.set_rx_delay(payload.rx_delay());
 
         let dl_settings = payload.dl_settings();
         let cf_list = payload
@@ -171,7 +171,7 @@ impl<'a> JoinAccept<'a> {
             );
         let net_id = payload.net_id();
 
-        DeviceState::new(session, settings)
+        (DeviceState::new(session), state)
     }
 }
 

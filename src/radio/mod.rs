@@ -1,11 +1,41 @@
 //! Compatible associated types for `radio`'s traits. These should eventually move to the `radio`
 //! crate.
 
-use radio::ReceiveInfo;
+use radio::{RadioState, ReceiveInfo};
 
 pub use crate::radio::config::*;
 
 mod config;
+
+#[derive(Debug)]
+pub struct LoRaState {
+    rx_delay: u8,
+}
+
+impl LoRaState {
+    pub fn set_rx_delay(&mut self, rx_delay: u8) -> &mut Self {
+        self.rx_delay = rx_delay;
+        self
+    }
+}
+
+impl RadioState for LoRaState {
+    fn idle() -> Self {
+        todo!()
+    }
+
+    fn sleep() -> Self {
+        todo!()
+    }
+}
+
+impl Default for LoRaState {
+    fn default() -> Self {
+        LoRaState {
+            rx_delay: 0
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum LoRaChannel {

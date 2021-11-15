@@ -27,17 +27,15 @@ impl Credentials {
 #[derive(Debug)]
 pub struct DeviceState {
     session: Session,
-    settings: Settings,
     fcnt_up: u32,
     fcnt_down: u32,
     adr_ack_cnt: u32,
 }
 
 impl DeviceState {
-    pub fn new(session: Session, settings: Settings) -> Self {
+    pub fn new(session: Session) -> Self {
         DeviceState {
             session,
-            settings,
             fcnt_up: 0,
             fcnt_down: 0,
             adr_ack_cnt: 0,
@@ -46,14 +44,6 @@ impl DeviceState {
 
     pub fn session(&self) -> &Session {
         &self.session
-    }
-
-    pub fn settings(&self) -> &Settings {
-        &self.settings
-    }
-
-    pub fn change_settings(&mut self) -> &mut Settings {
-        &mut self.settings
     }
 
     pub fn fcnt_up(&self) -> u32 {
@@ -101,28 +91,5 @@ impl Session {
 
     pub fn app_skey(&self) -> &AppSKey {
         &self.app_skey
-    }
-}
-
-/// Custom settings that the device uses to improve communication with the network, such as
-/// different delays, spreading factors, frequencies, etc. These are changed automatically using MAC
-/// commands.
-#[derive(Debug)]
-pub struct Settings {
-    rx_delay: u8,
-}
-
-impl Settings {
-    pub fn set_rx_delay(&mut self, rx_delay: u8) -> &mut Self {
-        self.rx_delay = rx_delay;
-        self
-    }
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Settings {
-            rx_delay: 0
-        }
     }
 }

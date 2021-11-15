@@ -2,14 +2,14 @@ use core::fmt::Debug;
 use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
-use radio::{Busy, Channel, Receive, Transmit};
+use radio::{Busy, Channel, Receive, State, Transmit};
 use radio::blocking::BlockingError;
 
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
 pub use crate::device::state::*;
 use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest, MAX_PAYLOAD_SIZE};
-use crate::radio::{LoRaChannel, LoRaInfo};
+use crate::radio::{LoRaChannel, LoRaInfo, LoRaState};
 
 mod class_a;
 pub mod error;
@@ -23,7 +23,7 @@ pub struct Device<R, S> {
 }
 
 impl<R, E> Device<R, Credentials>
-    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
           E: Debug
 {
     /// Creates a new LoRaWAN device through Over-The-Air-Activation. It must join a network with
@@ -46,11 +46,13 @@ impl<R, E> Device<R, Credentials>
         let _ = self.simple_transmit(join_request.payload(), &mut buf, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2)?;
 
         let join_accept = JoinAccept::from_data(&mut buf)?;
-        let state = join_accept.extract_state(&self.state, &dev_nonce);
+        let (device_state, lora_state) = join_accept.extract_state(&self.state, &dev_nonce);
+
+        self.radio.set_state(lora_state)?;
 
         let device = Device {
             radio: self.radio,
-            state,
+            state: device_state,
         };
 
         Ok(device)
@@ -58,13 +60,13 @@ impl<R, E> Device<R, Credentials>
 }
 
 impl<R, E> Device<R, DeviceState>
-    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
           E: Debug
 {
     /// Creates a joined device through Activation By Personalization. Consider using [new_otaa]
     /// instead, as it is more secure.
     pub fn new_abp(radio: R, session: Session) -> Self {
-        let state = DeviceState::new(session, Settings::default());
+        let state = DeviceState::new(session);
 
         Device {
             radio,
@@ -80,7 +82,7 @@ impl<R, E> Device<R, DeviceState>
 }
 
 impl<R, E, S> Device<R, S>
-    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
           E: Debug
 {
     /// The time the radio will listen for a message on a channel. This must be long enough for the
