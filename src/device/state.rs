@@ -10,6 +10,14 @@ pub struct Credentials {
 }
 
 impl Credentials {
+    pub fn new(app_eui: AppEui, dev_eui: DevEui, app_key: AppKey) -> Self {
+        Self {
+            app_eui,
+            dev_eui,
+            app_key,
+        }
+    }
+
     pub fn app_eui(&self) -> &AppEui {
         &self.app_eui
     }
