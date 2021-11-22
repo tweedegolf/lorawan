@@ -8,7 +8,8 @@ use radio::blocking::BlockingError;
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
 pub use crate::device::state::*;
-use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest, MAX_PAYLOAD_SIZE};
+use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest,
+                     MAX_PAYLOAD_SIZE};
 use crate::radio::{LoRaChannel, LoRaInfo, LoRaState};
 
 mod class_a;
@@ -23,7 +24,12 @@ pub struct Device<R, S> {
 }
 
 impl<R, E> Device<R, Credentials>
-    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E>,
+          R: Receive<Error=E, Info=LoRaInfo>,
+          R: State<State=LoRaState, Error=E>,
+          R: Channel<Channel=LoRaChannel, Error=E>,
+          R: Busy<Error=E>,
+          R: DelayUs<u32>,
           E: Debug
 {
     /// Creates a new LoRaWAN device through Over-The-Air-Activation. It must join a network with
@@ -43,10 +49,15 @@ impl<R, E> Device<R, Credentials>
         let join_request = JoinRequest::new(&self.state, &dev_nonce);
         let mut buf = [0; MAX_PAYLOAD_SIZE];
 
-        let _ = self.simple_transmit(join_request.payload(), &mut buf, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2)?;
+        let _ = self.simple_transmit(
+            join_request.payload(),
+            &mut buf,
+            JOIN_ACCEPT_DELAY1,
+            JOIN_ACCEPT_DELAY2,
+        )?;
 
-        let join_accept = JoinAccept::from_data(&mut buf)?;
-        let (device_state, lora_state) = join_accept.extract_state(&self.state, &dev_nonce);
+        let (device_state, lora_state) = JoinAccept::from_data(&mut buf)?
+            .extract_state(&self.state, &dev_nonce);
 
         self.radio.set_state(lora_state)?;
 
@@ -60,7 +71,12 @@ impl<R, E> Device<R, Credentials>
 }
 
 impl<R, E> Device<R, DeviceState>
-    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E>,
+          R: Receive<Error=E, Info=LoRaInfo>,
+          R: State<State=LoRaState, Error=E>,
+          R: Channel<Channel=LoRaChannel, Error=E>,
+          R: Busy<Error=E>,
+          R: DelayUs<u32>,
           E: Debug
 {
     /// Creates a joined device through Activation By Personalization. Consider using [new_otaa]
@@ -82,13 +98,18 @@ impl<R, E> Device<R, DeviceState>
 }
 
 impl<R, E, S> Device<R, S>
-    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E>,
+          R: Receive<Error=E, Info=LoRaInfo>,
+          R: State<State=LoRaState, Error=E>,
+          R: Channel<Channel=LoRaChannel, Error=E>,
+          R: Busy<Error=E>,
+          R: DelayUs<u32>,
           E: Debug
 {
     /// The time the radio will listen for a message on a channel. This must be long enough for the
-    /// radio to receive a preamble, in which case it will continue listening for the message. It must
-    /// not exceed one second, because the radio must switch to RX2 within that time if it does not
-    /// receive a message on RX1.
+    /// radio to receive a preamble, in which case it will continue listening for the message. It
+    /// must not exceed one second, because the radio must switch to RX2 within that time if it does
+    /// not receive a message on RX1.
     const TIMEOUT: Duration = Duration::from_millis(500);
 
     /// How often the radio will check whether a message has been received completely or not.
@@ -97,7 +118,13 @@ impl<R, E, S> Device<R, S>
     /// Basic LoRaWAN transmit. It transmits `tx`, then waits for a response on RX1, and if it does
     /// not receive anything, it waits for a response on RX2. The response is stored in `rx`. If no
     /// response is received, this method returns a timeout error.
-    pub(in crate::device) fn simple_transmit(&mut self, tx: &[u8], rx: &mut [u8], delay_1: Duration, delay_2: Duration) -> Result<(usize, LoRaInfo), DeviceError<E>> {
+    pub(in crate::device) fn simple_transmit(
+        &mut self,
+        tx: &[u8],
+        rx: &mut [u8],
+        delay_1: Duration,
+        delay_2: Duration,
+    ) -> Result<(usize, LoRaInfo), DeviceError<E>> {
         self.transmit(tx)?;
 
         self.radio.set_channel(&LoRaChannel::RX1)?;

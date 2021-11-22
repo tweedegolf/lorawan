@@ -12,13 +12,22 @@ use crate::radio::{LoRaChannel, LoRaInfo, LoRaState};
 pub struct ClassA<R>(Device<R, DeviceState>);
 
 impl<R, E> ClassA<R>
-    where R: Transmit<Error=E> + Receive<Error=E, Info=LoRaInfo> + State<State=LoRaState, Error=E> + Channel<Channel=LoRaChannel, Error=E> + Busy<Error=E> + DelayUs<u32>,
+    where R: Transmit<Error=E>,
+          R: Receive<Error=E, Info=LoRaInfo>,
+          R: State<State=LoRaState, Error=E>,
+          R: Channel<Channel=LoRaChannel, Error=E>,
+          R: Busy<Error=E>,
+          R: DelayUs<u32>,
           E: Debug
 {
     /// Transmits `tx` and waits for an optional response, storing it in `rx` and returning the size
     /// and packet information if applicable. This takes care of encryption and decryption, timing,
     /// and which channels to listen from.
-    pub fn transmit(&mut self, tx: &[u8], rx: &mut [u8]) -> Result<Option<(usize, LoRaInfo)>, DeviceError<E>> {
+    pub fn transmit(
+        &mut self,
+        tx: &[u8],
+        rx: &mut [u8],
+    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<E>> {
         let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
         match self.0.simple_transmit(uplink.as_bytes(), rx, RECEIVE_DELAY1, RECEIVE_DELAY2) {
             Ok((n, info)) => {

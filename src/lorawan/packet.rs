@@ -3,7 +3,9 @@ use core::marker::PhantomData;
 use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
 use lorawan_encoding::maccommands::MacCommand;
-use lorawan_encoding::parser::{DataHeader, DataPayload, EncryptedJoinAcceptPayload, FCtrl, FRMPayload, MHDRAble, PhyPayload};
+use lorawan_encoding::parser;
+use lorawan_encoding::parser::{DataHeader, DataPayload, EncryptedJoinAcceptPayload, FCtrl,
+                               FRMPayload, MHDRAble, PhyPayload};
 
 use crate::device::{Credentials, DeviceState, Session};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
@@ -14,7 +16,11 @@ pub const MAX_PAYLOAD_SIZE: usize = 242;
 pub struct Uplink([u8; MAX_PAYLOAD_SIZE], usize);
 
 impl Uplink {
-    pub fn new<E>(payload: &[u8], port: u8, state: &mut DeviceState) -> Result<Self, PacketError<E>> {
+    pub fn new<E>(
+        payload: &[u8],
+        port: u8,
+        state: &mut DeviceState,
+    ) -> Result<Self, PacketError<E>> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -49,7 +55,7 @@ impl Downlink {
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
 
-        if let PhyPayload::Data(DataPayload::Encrypted(phy)) = lorawan_encoding::parser::parse(data)? {
+        if let PhyPayload::Data(DataPayload::Encrypted(phy)) = parser::parse(data)? {
             let phy = phy
                 .decrypt_if_mic_ok(&nwk_skey, &app_skey, state.fcnt_down())
                 .map_err(|_| PacketError::MICMismatch)?;
@@ -141,7 +147,11 @@ impl<'a> JoinAccept<'a> {
         Ok(JoinAccept(payload))
     }
 
-    pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> (DeviceState, LoRaState) {
+    pub fn extract_state(
+        self,
+        credentials: &Credentials,
+        dev_nonce: &DevNonce,
+    ) -> (DeviceState, LoRaState) {
         let app_key = (*credentials.app_key().as_bytes()).into();
         let dev_nonce = dev_nonce.as_bytes().into();
 
