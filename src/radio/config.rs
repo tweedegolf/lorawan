@@ -1,142 +1,64 @@
-use crate::radio::LoRaChannel;
+use core::marker::PhantomData;
 
-pub type Frequency = u32;
+use radio::modulation::lora::{LoRaChannel, SpreadingFactor};
 
-pub struct Config {
-    region: Region,
-    data_rate: DataRate,
+use crate::radio::Frequency;
+use crate::radio::region::Region;
+
+#[derive(Debug)]
+pub struct Config<R> {
+    region: R,
+    data_rate: DataRate<R>,
 }
 
-impl Config {
-    pub fn new(region: Region, dr: usize) -> Self {
-        let data_rate = region.datarates()[dr];
+impl<R: Region> Config<R> {
+    pub fn new(region: R) -> Self {
         Config {
             region,
-            data_rate,
+            data_rate: R::DATA_RATES[0].clone(),
         }
+    }
+
+    pub fn rx1(&self) -> LoRaChannel {
+        todo!()
+    }
+
+    pub fn rx2(&self) -> LoRaChannel {
+        todo!()
     }
 }
 
-pub enum Region {
-    EU868
+#[derive(Debug)]
+pub struct DataRate<R> {
+    spreading_factor: SpreadingFactor,
+    frequency: Frequency,
+    _region: PhantomData<R>,
 }
 
-impl Region {
-    const fn join_frequencies(&self) -> &[Frequency] {
-        match self {
-            Region::EU868 => &[
-                // Default channels
-                868_100_000,
-                868_300_000,
-                868_500_000,
-            ]
+impl<R> DataRate<R> {
+    pub const fn new(spreading_factor: SpreadingFactor, frequency: Frequency) -> Self {
+        DataRate {
+            spreading_factor,
+            frequency,
+            _region: PhantomData,
         }
     }
 
-    const fn uplink_frequencies(&self) -> &[Frequency] {
-        match self {
-            Region::EU868 => &[
-                // Default channels
-                868_100_000,
-                868_300_000,
-                868_500_000,
-
-                // The Things Network also supports these channels
-                #[cfg(feature = "ttn")]
-                    867_100_000,
-                #[cfg(feature = "ttn")]
-                    867_300_000,
-                #[cfg(feature = "ttn")]
-                    867_500_000,
-                #[cfg(feature = "ttn")]
-                    867_700_000,
-                #[cfg(feature = "ttn")]
-                    867_900_000,
-
-                // FSK
-                // 868_800_000
-            ]
-        }
+    pub fn spreading_factor(&self) -> &SpreadingFactor {
+        &self.spreading_factor
     }
 
-    const fn downlink_frequencies(&self, channel: &LoRaChannel) -> &[Frequency] {
-        match self {
-            Region::EU868 => match channel {
-                LoRaChannel::RX1 => self.uplink_frequencies(),
-                LoRaChannel::RX2 => &[869_525_000]
-            }
-        }
-    }
-
-    const fn datarates(&self) -> &[DataRate] {
-        match self {
-            Region::EU868 => &[
-                DataRate::SF12_125,
-                DataRate::SF11_125,
-                DataRate::SF10_125,
-                DataRate::SF9_125,
-                DataRate::SF8_125,
-                DataRate::SF7_125,
-                DataRate::SF7_250
-            ]
-        }
+    pub fn bandwidth(&self) -> &Frequency {
+        &self.frequency
     }
 }
 
-pub enum SpreadingFactor {
-    SF7,
-    SF8,
-    SF9,
-    SF10,
-    SF11,
-    SF12,
-}
-
-#[derive(Copy, Clone)]
-enum DataRate {
-    SF12_125,
-    SF11_125,
-    SF10_125,
-    SF9_125,
-    SF8_125,
-    SF7_125,
-    SF7_250,
-}
-
-impl DataRate {
-    fn spreading_factor(&self) -> SpreadingFactor {
-        match self {
-            DataRate::SF12_125 => SpreadingFactor::SF12,
-            DataRate::SF11_125 => SpreadingFactor::SF11,
-            DataRate::SF10_125 => SpreadingFactor::SF10,
-            DataRate::SF9_125 => SpreadingFactor::SF9,
-            DataRate::SF8_125 => SpreadingFactor::SF8,
-            DataRate::SF7_125 => SpreadingFactor::SF7,
-            DataRate::SF7_250 => SpreadingFactor::SF7
-        }
-    }
-
-    fn bandwidth(&self) -> Frequency {
-        match self {
-            DataRate::SF12_125 => 125_000,
-            DataRate::SF11_125 => 125_000,
-            DataRate::SF10_125 => 125_000,
-            DataRate::SF9_125 => 125_000,
-            DataRate::SF8_125 => 125_000,
-            DataRate::SF7_125 => 125_000,
-            DataRate::SF7_250 => 250_000
-        }
-    }
-
-    fn max_payload_size(&self) -> usize {
-        match self {
-            DataRate::SF12_125 => 51,
-            DataRate::SF11_125 => 51,
-            DataRate::SF10_125 => 51,
-            DataRate::SF9_125 => 115,
-            DataRate::SF8_125 => 242,
-            DataRate::SF7_125 => 242,
-            DataRate::SF7_250 => 242
+impl<R> Clone for DataRate<R> {
+    fn clone(&self) -> Self {
+        DataRate {
+            spreading_factor: self.spreading_factor.clone(),
+            frequency: self.frequency.clone(),
+            _region: PhantomData,
         }
     }
 }

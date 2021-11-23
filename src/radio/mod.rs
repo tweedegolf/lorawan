@@ -1,11 +1,12 @@
-//! Compatible associated types for `radio`'s traits. These should eventually move to the `radio`
-//! crate.
-
 use radio::{RadioState, ReceiveInfo};
 
 pub use crate::radio::config::*;
+pub use crate::radio::region::*;
 
 mod config;
+mod region;
+
+pub type Frequency = u32;
 
 #[derive(Debug)]
 pub struct LoRaState {
@@ -35,12 +36,6 @@ impl Default for LoRaState {
             rx_delay: 0
         }
     }
-}
-
-#[derive(Debug)]
-pub enum LoRaChannel {
-    RX1,
-    RX2,
 }
 
 #[derive(Debug, Default)]
