@@ -1,20 +1,24 @@
+use core::marker::PhantomData;
 use crate::lorawan::{AppEui, AppKey, AppSKey, DevAddr, DevEui, NwkSKey};
+use crate::radio::{DataRate, Region};
 
 /// Credentials needed to join a device to a network. A device that has not joined a network will
 /// use this as state.
 #[derive(Debug)]
-pub struct Credentials {
+pub struct Credentials<R> {
     app_eui: AppEui,
     dev_eui: DevEui,
     app_key: AppKey,
+    _region: PhantomData<R>,
 }
 
-impl Credentials {
+impl<R> Credentials<R> {
     pub fn new(app_eui: AppEui, dev_eui: DevEui, app_key: AppKey) -> Self {
         Self {
             app_eui,
             dev_eui,
             app_key,
+            _region: PhantomData,
         }
     }
 
@@ -33,17 +37,19 @@ impl Credentials {
 
 /// Represents the state of a device that has joined a network.
 #[derive(Debug)]
-pub struct DeviceState {
+pub struct DeviceState<R> {
     session: Session,
+    data_rate: DataRate<R>,
     fcnt_up: u32,
     fcnt_down: u32,
     adr_ack_cnt: u32,
 }
 
-impl DeviceState {
+impl<R: Region> DeviceState<R> {
     pub fn new(session: Session) -> Self {
         DeviceState {
             session,
+            data_rate: DataRate::default(),
             fcnt_up: 0,
             fcnt_down: 0,
             adr_ack_cnt: 0,
@@ -52,6 +58,10 @@ impl DeviceState {
 
     pub fn session(&self) -> &Session {
         &self.session
+    }
+
+    pub fn data_rate(&self) -> &DataRate<R> {
+        &self.data_rate
     }
 
     pub fn fcnt_up(&self) -> u32 {

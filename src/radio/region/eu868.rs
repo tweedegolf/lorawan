@@ -2,6 +2,7 @@ use radio::modulation::lora::SpreadingFactor;
 
 use crate::radio::{DataRate, Frequency, Region};
 
+#[derive(Debug, PartialEq)]
 pub struct EU868;
 
 impl Region for EU868 {
@@ -31,15 +32,19 @@ impl Region for EU868 {
 
 impl DataRate<EU868> {
     pub fn max_payload_size(&self) -> usize {
-        match (self.spreading_factor(), self.bandwidth()) {
-            (SpreadingFactor::Sf12, 125_000) => 51,
-            (SpreadingFactor::Sf11, 125_000) => 51,
-            (SpreadingFactor::Sf10, 125_000) => 51,
-            (SpreadingFactor::Sf9, 125_000) => 115,
-            (SpreadingFactor::Sf8, 125_000) => 222,
-            (SpreadingFactor::Sf7, 125_000) => 222,
-            (SpreadingFactor::Sf7, 250_000) => 222,
-            _ => panic!("invalid data rate for EU868"),
+        const MAX_PAYLOAD_SIZE: [usize; 7] = [51, 51, 51, 115, 222, 222, 222];
+        let size = EU868::DATA_RATES
+            .iter()
+            .enumerate()
+            .find(|(_, dr)| **dr == *self)
+            .map(|(index, _)| MAX_PAYLOAD_SIZE[index]);
+        match size {
+            Some(size) => size,
+            None => {
+                #[cfg(feature = "defmt")]
+                defmt::error!("Unsupported data rate: {:?}", self);
+                panic!("Unsupported data rate: {:?}", self)
+            }
         }
     }
 }

@@ -1,24 +1,16 @@
 use core::fmt::Debug;
 
-use embedded_hal::blocking::delay::DelayUs;
-use radio::{Busy, Channel, Receive, State, Transmit};
 use radio::blocking::BlockingError;
-use radio::modulation::lora::LoRaChannel;
 
 use crate::device::{Device, DeviceState};
 use crate::device::error::DeviceError;
 use crate::lorawan::{Downlink, RECEIVE_DELAY1, RECEIVE_DELAY2, Uplink};
-use crate::radio::{LoRaInfo, LoRaState, Region};
+use crate::radio::{LoRaInfo, LoRaRadio, Region};
 
-pub struct ClassA<R, C>(Device<R, C, DeviceState>);
+pub struct ClassA<T, R>(Device<T, R, DeviceState<R>>);
 
 impl<T, R, E> ClassA<T, R>
-    where T: Transmit<Error=E>,
-          T: Receive<Error=E, Info=LoRaInfo>,
-          T: State<State=LoRaState<R>, Error=E>,
-          T: Channel<Channel=LoRaChannel, Error=E>,
-          T: Busy<Error=E>,
-          T: DelayUs<u32>,
+    where T: LoRaRadio<Error=E>,
           R: Region,
           E: Debug
 {
@@ -31,7 +23,14 @@ impl<T, R, E> ClassA<T, R>
         rx: &mut [u8],
     ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<E>> {
         let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
-        match self.0.simple_transmit(uplink.as_bytes(), rx, RECEIVE_DELAY1, RECEIVE_DELAY2) {
+        let result = self.0.radio.lorawan_transmit(
+            uplink.as_bytes(),
+            rx,
+            RECEIVE_DELAY1,
+            RECEIVE_DELAY2,
+            self.0.state.data_rate(),
+        );
+        match result {
             Ok((n, info)) => {
                 let downlink = Downlink::from_data(rx, &mut self.0.state)?;
                 rx.copy_from_slice(downlink.as_bytes());
@@ -43,8 +42,8 @@ impl<T, R, E> ClassA<T, R>
     }
 }
 
-impl<R, C> From<Device<R, C, DeviceState>> for ClassA<R, C> {
-    fn from(device: Device<R, C, DeviceState>) -> Self {
+impl<T, R> From<Device<T, R, DeviceState<R>>> for ClassA<T, R> {
+    fn from(device: Device<T, R, DeviceState<R>>) -> Self {
         ClassA(device)
     }
 }

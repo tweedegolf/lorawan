@@ -1,10 +1,10 @@
 use core::marker::PhantomData;
 
-use radio::modulation::lora::SpreadingFactor;
+use radio::modulation::lora::{CodingRate, LoRaChannel, SpreadingFactor};
 
-use crate::radio::Frequency;
+use crate::radio::{Frequency, Region};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DataRate<R> {
     spreading_factor: SpreadingFactor,
     frequency: Frequency,
@@ -12,20 +12,44 @@ pub struct DataRate<R> {
 }
 
 impl<R> DataRate<R> {
-    pub const fn new(spreading_factor: SpreadingFactor, frequency: Frequency) -> Self {
+    pub(in crate::radio) const fn new(
+        spreading_factor: SpreadingFactor,
+        frequency: Frequency
+    ) -> Self {
         DataRate {
             spreading_factor,
             frequency,
             _region: PhantomData,
         }
     }
+}
 
-    pub fn spreading_factor(&self) -> &SpreadingFactor {
-        &self.spreading_factor
+impl<R: Region> DataRate<R> {
+    pub fn rx1(&self) -> LoRaChannel {
+        // TODO: Pick channel at random
+        LoRaChannel {
+            freq_khz: R::RX1_FREQUENCIES[0],
+            bw_khz: self.frequency as u16,
+            sf: self.spreading_factor,
+            cr: CodingRate::Cr4_5,
+        }
     }
 
-    pub fn bandwidth(&self) -> &Frequency {
-        &self.frequency
+    pub fn rx2(&self) -> LoRaChannel {
+        // TODO: Pick channel at random
+        LoRaChannel {
+            freq_khz: R::RX2_FREQUENCIES[0],
+            bw_khz: self.frequency as u16,
+            sf: self.spreading_factor,
+            cr: CodingRate::Cr4_5,
+        }
+    }
+}
+
+impl<R: Region> Default for DataRate<R> {
+    /// Returns the appropriate DR0 for this region.
+    fn default() -> Self {
+        R::DATA_RATES[0].clone()
     }
 }
 

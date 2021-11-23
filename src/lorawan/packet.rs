@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 use core::marker::PhantomData;
 
 use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
@@ -16,10 +17,10 @@ pub const MAX_PAYLOAD_SIZE: usize = 242;
 pub struct Uplink([u8; MAX_PAYLOAD_SIZE], usize);
 
 impl Uplink {
-    pub fn new<E>(
+    pub fn new<R: Region, E>(
         payload: &[u8],
         port: u8,
-        state: &mut DeviceState,
+        state: &mut DeviceState<R>,
     ) -> Result<Self, PacketError<E>> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
@@ -50,7 +51,10 @@ impl Uplink {
 pub struct Downlink([u8; MAX_PAYLOAD_SIZE], usize);
 
 impl Downlink {
-    pub fn from_data<E>(data: &mut [u8], state: &mut DeviceState) -> Result<Self, PacketError<E>> {
+    pub fn from_data<R: Region, E>(
+        data: &mut [u8],
+        state: &mut DeviceState<R>,
+    ) -> Result<Self, PacketError<E>> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -118,7 +122,7 @@ impl Downlink {
 pub struct JoinRequest([u8; 23]);
 
 impl JoinRequest {
-    pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> Self {
+    pub fn new<R>(credentials: &Credentials<R>, dev_nonce: &DevNonce) -> Self {
         let app_key = (*credentials.app_key().as_bytes()).into();
 
         let mut phy = JoinRequestCreator::new();
@@ -149,9 +153,9 @@ impl<'a> JoinAccept<'a> {
 
     pub fn extract_state<R: Region>(
         self,
-        credentials: &Credentials,
+        credentials: &Credentials<R>,
         dev_nonce: &DevNonce,
-    ) -> (DeviceState, LoRaState<R>) {
+    ) -> (DeviceState<R>, LoRaState) {
         let app_key = (*credentials.app_key().as_bytes()).into();
         let dev_nonce = dev_nonce.as_bytes().into();
 
