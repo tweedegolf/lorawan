@@ -1,32 +1,8 @@
 use core::marker::PhantomData;
 
-use radio::modulation::lora::{LoRaChannel, SpreadingFactor};
+use radio::modulation::lora::SpreadingFactor;
 
 use crate::radio::Frequency;
-use crate::radio::region::Region;
-
-#[derive(Debug)]
-pub struct Config<R> {
-    region: R,
-    data_rate: DataRate<R>,
-}
-
-impl<R: Region> Config<R> {
-    pub fn new(region: R) -> Self {
-        Config {
-            region,
-            data_rate: R::DATA_RATES[0].clone(),
-        }
-    }
-
-    pub fn rx1(&self) -> LoRaChannel {
-        todo!()
-    }
-
-    pub fn rx2(&self) -> LoRaChannel {
-        todo!()
-    }
-}
 
 #[derive(Debug)]
 pub struct DataRate<R> {

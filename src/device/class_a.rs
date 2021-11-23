@@ -12,14 +12,14 @@ use crate::radio::{LoRaInfo, LoRaState, Region};
 
 pub struct ClassA<R, C>(Device<R, C, DeviceState>);
 
-impl<R, C, E> ClassA<R, C>
-    where R: Transmit<Error=E>,
-          R: Receive<Error=E, Info=LoRaInfo>,
-          R: State<State=LoRaState, Error=E>,
-          R: Channel<Channel=LoRaChannel, Error=E>,
-          R: Busy<Error=E>,
-          R: DelayUs<u32>,
-          C: Region,
+impl<T, R, E> ClassA<T, R>
+    where T: Transmit<Error=E>,
+          T: Receive<Error=E, Info=LoRaInfo>,
+          T: State<State=LoRaState<R>, Error=E>,
+          T: Channel<Channel=LoRaChannel, Error=E>,
+          T: Busy<Error=E>,
+          T: DelayUs<u32>,
+          R: Region,
           E: Debug
 {
     /// Transmits `tx` and waits for an optional response, storing it in `rx` and returning the size
