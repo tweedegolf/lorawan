@@ -122,7 +122,7 @@ impl Downlink {
 pub struct JoinRequest([u8; 23]);
 
 impl JoinRequest {
-    pub fn new<R>(credentials: &Credentials<R>, dev_nonce: &DevNonce) -> Self {
+    pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> Self {
         let app_key = (*credentials.app_key().as_bytes()).into();
 
         let mut phy = JoinRequestCreator::new();
@@ -153,7 +153,7 @@ impl<'a> JoinAccept<'a> {
 
     pub fn extract_state<R: Region>(
         self,
-        credentials: &Credentials<R>,
+        credentials: &Credentials,
         dev_nonce: &DevNonce,
     ) -> (DeviceState<R>, LoRaState) {
         let app_key = (*credentials.app_key().as_bytes()).into();

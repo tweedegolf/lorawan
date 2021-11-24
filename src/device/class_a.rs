@@ -7,7 +7,7 @@ use crate::device::error::DeviceError;
 use crate::lorawan::{Downlink, RECEIVE_DELAY1, RECEIVE_DELAY2, Uplink};
 use crate::radio::{LoRaInfo, LoRaRadio, Region};
 
-pub struct ClassA<T, R>(Device<T, R, DeviceState<R>>);
+pub struct ClassA<T, R>(Device<T, DeviceState<R>>);
 
 impl<T, R, E> ClassA<T, R>
     where T: LoRaRadio<Error=E>,
@@ -42,8 +42,8 @@ impl<T, R, E> ClassA<T, R>
     }
 }
 
-impl<T, R> From<Device<T, R, DeviceState<R>>> for ClassA<T, R> {
-    fn from(device: Device<T, R, DeviceState<R>>) -> Self {
+impl<T, R> From<Device<T, DeviceState<R>>> for ClassA<T, R> {
+    fn from(device: Device<T, DeviceState<R>>) -> Self {
         ClassA(device)
     }
 }

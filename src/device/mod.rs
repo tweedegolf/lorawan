@@ -1,5 +1,4 @@
 use core::fmt::Debug;
-use core::marker::PhantomData;
 
 use radio::State;
 
@@ -16,31 +15,28 @@ mod state;
 
 /// Represents a generic LoRaWAN device. The state can be either [Credentials] for
 /// devices that have not joined a network, or [DeviceState] for devices that have.
-pub struct Device<T, R, S> {
+pub struct Device<T, S> {
     radio: T,
-    _region: PhantomData<R>,
     state: S,
 }
 
-impl<T, R, E> Device<T, R, Credentials<R>>
+impl<T, E> Device<T, Credentials>
     where T: LoRaRadio<Error=E>,
           T: State<State=LoRaState, Error=E>,
-          R: Region,
           E: Debug
 {
     /// Creates a new LoRaWAN device through Over-The-Air-Activation. It must join a network with
     /// [join] before it can be used. Alternatively, an ABP-joined device can be constructed with
     /// [new_abp].
-    pub fn new_otaa(radio: T, credentials: Credentials<R>) -> Self {
+    pub fn new_otaa(radio: T, credentials: Credentials) -> Self {
         Device {
             radio,
-            _region: PhantomData,
             state: credentials,
         }
     }
 
     /// Attempts to join this device to a network.
-    pub fn join(mut self) -> Result<Device<T, R, DeviceState<R>>, DeviceError<E>> {
+    pub fn join<R: Region>(mut self) -> Result<Device<T, DeviceState<R>>, DeviceError<E>> {
         let dev_nonce = DevNonce::new(37);
 
         let join_request = JoinRequest::new(&self.state, &dev_nonce);
@@ -62,7 +58,6 @@ impl<T, R, E> Device<T, R, Credentials<R>>
 
         let device = Device {
             radio: self.radio,
-            _region: PhantomData,
             state: device_state,
         };
 
@@ -70,7 +65,7 @@ impl<T, R, E> Device<T, R, Credentials<R>>
     }
 }
 
-impl<T, R, E> Device<T, R, DeviceState<R>>
+impl<T, R, E> Device<T, DeviceState<R>>
     where T: LoRaRadio<Error=E>,
           R: Region,
           E: Debug
@@ -82,7 +77,6 @@ impl<T, R, E> Device<T, R, DeviceState<R>>
 
         Device {
             radio,
-            _region: PhantomData,
             state,
         }
     }

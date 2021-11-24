@@ -1,24 +1,21 @@
-use core::marker::PhantomData;
 use crate::lorawan::{AppEui, AppKey, AppSKey, DevAddr, DevEui, NwkSKey};
 use crate::radio::{DataRate, Region};
 
 /// Credentials needed to join a device to a network. A device that has not joined a network will
 /// use this as state.
 #[derive(Debug)]
-pub struct Credentials<R> {
+pub struct Credentials {
     app_eui: AppEui,
     dev_eui: DevEui,
     app_key: AppKey,
-    _region: PhantomData<R>,
 }
 
-impl<R> Credentials<R> {
+impl Credentials {
     pub fn new(app_eui: AppEui, dev_eui: DevEui, app_key: AppKey) -> Self {
-        Self {
+        Credentials {
             app_eui,
             dev_eui,
             app_key,
-            _region: PhantomData,
         }
     }
 
