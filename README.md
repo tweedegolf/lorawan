@@ -13,13 +13,13 @@ let app_key = AppKey::new(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA);
 let credentials = Credentials::new(app_eui, dev_eui, app_key);
 
 let mut device = Device::new_otaa(radio, credentials)
-    .join()
+    .join::<EU868>()
     .expect("failed to join network")
     .into_class_a();
 
 let mut buf = [0; MAX_PAYLOAD_SIZE];
 match device.transmit("hello".as_bytes(), &mut buf).expect("failed to transmit") {
-    Some((size, _)) => println!("response: {:?}", buf[0..size]),
+    Some((size, _)) => println!("response: {:?}", buf[..size]),
     None => println!("no response")
 }
 ```

@@ -56,8 +56,8 @@ impl<R: Region> Default for DataRate<R> {
 impl<R> Clone for DataRate<R> {
     fn clone(&self) -> Self {
         DataRate {
-            spreading_factor: self.spreading_factor.clone(),
-            frequency: self.frequency.clone(),
+            spreading_factor: self.spreading_factor,
+            frequency: self.frequency,
             _region: PhantomData,
         }
     }
