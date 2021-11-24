@@ -13,4 +13,6 @@ pub trait Region: Sized + 'static {
     const RX2_FREQUENCIES: &'static [Frequency];
 
     const DATA_RATES: &'static [DataRate<Self>];
+
+    fn packet_size_limit(rate: &DataRate<Self>) -> usize;
 }

@@ -28,23 +28,18 @@ impl Region for EU868 {
         DataRate::new(SpreadingFactor::Sf7, 125_000),
         DataRate::new(SpreadingFactor::Sf7, 250_000),
     ];
-}
 
-impl DataRate<EU868> {
-    pub fn max_payload_size(&self) -> usize {
-        const MAX_PAYLOAD_SIZE: [usize; 7] = [51, 51, 51, 115, 222, 222, 222];
-        let size = EU868::DATA_RATES
+    fn packet_size_limit(rate: &DataRate<Self>) -> usize {
+        const PACKET_SIZE_LIMITS: [usize; 7] = [51, 51, 51, 115, 222, 222, 222];
+        Self::DATA_RATES
             .iter()
             .enumerate()
-            .find(|(_, dr)| **dr == *self)
-            .map(|(index, _)| MAX_PAYLOAD_SIZE[index]);
-        match size {
-            Some(size) => size,
-            None => {
+            .find_map(|(index, other)| (*other == *rate)
+                .then(|| PACKET_SIZE_LIMITS[index]))
+            .unwrap_or_else(|| {
                 #[cfg(feature = "defmt")]
-                defmt::error!("Unsupported data rate: {:?}", self);
-                panic!("Unsupported data rate: {:?}", self)
-            }
-        }
+                defmt::error!("Unsupported data rate: {:?}", rate);
+                panic!("Unsupported data rate: {:?}", rate)
+            })
     }
 }

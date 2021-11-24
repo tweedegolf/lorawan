@@ -40,6 +40,12 @@ impl<T, R, E> ClassA<T, R>
             Err(error) => Err(error)
         }
     }
+
+    /// Returns the maximum size of a LoRaWAN packet using the current configuration. Note that the
+    /// actual payload is shorter than this.
+    pub fn packet_size_limit(&self) -> usize {
+        R::packet_size_limit(self.0.state.data_rate())
+    }
 }
 
 impl<T, R> From<Device<T, DeviceState<R>>> for ClassA<T, R> {

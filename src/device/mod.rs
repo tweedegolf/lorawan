@@ -5,8 +5,7 @@ use radio::State;
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
 pub use crate::device::state::*;
-use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest,
-                     MAX_PAYLOAD_SIZE};
+use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest, MAX_PACKET_SIZE};
 use crate::radio::{DataRate, LoRaRadio, LoRaState, Region};
 
 mod class_a;
@@ -40,7 +39,7 @@ impl<T, E> Device<T, Credentials>
         let dev_nonce = DevNonce::new(37);
 
         let join_request = JoinRequest::new(&self.state, &dev_nonce);
-        let mut buf = [0; MAX_PAYLOAD_SIZE];
+        let mut buf = [0; MAX_PACKET_SIZE];
         let dr0: DataRate<R> = DataRate::default();
 
         let _ = self.radio.lorawan_transmit(

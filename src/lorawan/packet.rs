@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+
 use core::marker::PhantomData;
 
 use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
@@ -12,9 +13,9 @@ use crate::device::{Credentials, DeviceState, Session};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
 use crate::radio::{Frequency, LoRaState, Region};
 
-pub const MAX_PAYLOAD_SIZE: usize = 242;
+pub const MAX_PACKET_SIZE: usize = 242;
 
-pub struct Uplink([u8; MAX_PAYLOAD_SIZE], usize);
+pub struct Uplink([u8; MAX_PACKET_SIZE], usize);
 
 impl Uplink {
     pub fn new<R: Region, E>(
@@ -35,7 +36,7 @@ impl Uplink {
         phy.set_uplink(true);
         let payload = phy.build(payload, &[], &nwk_skey, &app_skey)?;
 
-        let mut buf = [0; MAX_PAYLOAD_SIZE];
+        let mut buf = [0; MAX_PACKET_SIZE];
         buf[0..payload.len()].copy_from_slice(payload);
 
         state.increment_fcnt_up();
@@ -48,7 +49,7 @@ impl Uplink {
     }
 }
 
-pub struct Downlink([u8; MAX_PAYLOAD_SIZE], usize);
+pub struct Downlink([u8; MAX_PACKET_SIZE], usize);
 
 impl Downlink {
     pub fn from_data<R: Region, E>(
