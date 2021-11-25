@@ -3,7 +3,7 @@
 pub struct AppEui([u8; 8]);
 
 impl AppEui {
-    pub fn new(eui: u64) -> Self {
+    pub const fn new(eui: u64) -> Self {
         AppEui(eui.to_le_bytes())
     }
 
@@ -17,7 +17,7 @@ impl AppEui {
 pub struct DevEui([u8; 8]);
 
 impl DevEui {
-    pub fn new(eui: u64) -> Self {
+    pub const fn new(eui: u64) -> Self {
         DevEui(eui.to_le_bytes())
     }
 
@@ -31,7 +31,7 @@ impl DevEui {
 pub struct AppKey([u8; 16]);
 
 impl AppKey {
-    pub fn new(key: u128) -> Self {
+    pub const fn new(key: u128) -> Self {
         AppKey(key.to_le_bytes())
     }
 
@@ -45,7 +45,7 @@ impl AppKey {
 pub struct DevAddr([u8; 4]);
 
 impl DevAddr {
-    pub fn new(addr: u32) -> Self {
+    pub const fn new(addr: u32) -> Self {
         DevAddr(addr.to_le_bytes())
     }
 
@@ -63,7 +63,7 @@ impl DevAddr {
 pub struct NwkSKey([u8; 16]);
 
 impl NwkSKey {
-    pub fn new(key: u128) -> Self {
+    pub const fn new(key: u128) -> Self {
         NwkSKey(key.to_le_bytes())
     }
 
@@ -81,7 +81,7 @@ impl NwkSKey {
 pub struct AppSKey([u8; 16]);
 
 impl AppSKey {
-    pub fn new(key: u128) -> Self {
+    pub const fn new(key: u128) -> Self {
         AppSKey(key.to_le_bytes())
     }
 
@@ -99,7 +99,7 @@ impl AppSKey {
 pub struct DevNonce([u8; 2]);
 
 impl DevNonce {
-    pub fn new(nonce: u16) -> Self {
+    pub const fn new(nonce: u16) -> Self {
         DevNonce(nonce.to_le_bytes())
     }
 
