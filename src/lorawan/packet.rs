@@ -11,7 +11,7 @@ use lorawan_encoding::parser::{DataHeader, DataPayload, EncryptedJoinAcceptPaylo
 
 use crate::device::{Credentials, DeviceState, Session};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
-use crate::radio::{Frequency, LoRaState, Region};
+use crate::radio::{Hz, LoRaState, Region};
 
 pub const MAX_PACKET_SIZE: usize = 242;
 
@@ -181,7 +181,7 @@ impl<'a> JoinAccept<'a> {
                 .map(|frequency| {
                     let mut buf = [0; 4];
                     buf[1..3].copy_from_slice(frequency.as_ref());
-                    Frequency::from_le_bytes(buf)
+                    Hz::from_le_bytes(buf)
                 })
             );
         let net_id = payload.net_id();

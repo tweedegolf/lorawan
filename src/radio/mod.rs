@@ -13,7 +13,7 @@ pub use crate::radio::region::*;
 mod rate;
 mod region;
 
-pub type Frequency = u32;
+pub type Hz = u32;
 
 #[derive(Debug, Default)]
 pub struct LoRaState {

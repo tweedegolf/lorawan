@@ -1,23 +1,23 @@
 use radio::modulation::lora::SpreadingFactor;
 
-use crate::radio::{DataRate, Frequency, Region};
+use crate::radio::{DataRate, Hz, Region};
 
 #[derive(Debug, PartialEq)]
 pub struct EU868;
 
 impl Region for EU868 {
-    const JOIN_FREQUENCIES: &'static [Frequency] = &[
+    const JOIN_FREQUENCIES: &'static [Hz] = &[
         // Default channels
         868_100_000,
         868_300_000,
         868_500_000,
     ];
 
-    const TX_FREQUENCIES: &'static [Frequency] = Self::JOIN_FREQUENCIES;
+    const TX_FREQUENCIES: &'static [Hz] = Self::JOIN_FREQUENCIES;
 
-    const RX1_FREQUENCIES: &'static [Frequency] = Self::TX_FREQUENCIES;
+    const RX1_FREQUENCIES: &'static [Hz] = Self::TX_FREQUENCIES;
 
-    const RX2_FREQUENCIES: &'static [Frequency] = &[869_525_000];
+    const RX2_FREQUENCIES: &'static [Hz] = &[869_525_000];
 
     const DATA_RATES: &'static [DataRate<Self>] = &[
         DataRate::new(SpreadingFactor::Sf12, 125_000),
