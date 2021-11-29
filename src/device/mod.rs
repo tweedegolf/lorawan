@@ -1,12 +1,10 @@
 use core::fmt::Debug;
 
-use radio::State;
-
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
 pub use crate::device::state::*;
 use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest, MAX_PACKET_SIZE};
-use crate::radio::{DataRate, LoRaRadio, LoRaState, Region};
+use crate::radio::{DataRate, LoRaRadio, Region};
 
 mod class_a;
 pub mod error;
@@ -21,7 +19,6 @@ pub struct Device<T, S> {
 
 impl<T, E> Device<T, Credentials>
     where T: LoRaRadio<Error=E>,
-          T: State<State=LoRaState, Error=E>,
           E: Debug
 {
     /// Creates a new LoRaWAN device through Over-The-Air-Activation. It must join a network with
@@ -50,10 +47,9 @@ impl<T, E> Device<T, Credentials>
             &dr0,
         )?;
 
-        let (device_state, lora_state) = JoinAccept::from_data(&mut buf)?
+        // TODO: Manage state
+        let (device_state, _) = JoinAccept::from_data(&mut buf)?
             .extract_state::<R>(&self.state, &dev_nonce);
-
-        self.radio.set_state(lora_state)?;
 
         let device = Device {
             radio: self.radio,

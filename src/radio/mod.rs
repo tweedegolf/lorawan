@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
-use radio::{Busy, Channel, RadioState, Receive, ReceiveInfo, State, Transmit};
+use radio::{Busy, Channel, RadioState, Receive, ReceiveInfo, Transmit};
 use radio::blocking::BlockingError;
 use radio::modulation::lora::LoRaChannel;
 
@@ -86,7 +86,6 @@ pub trait LoRaRadio {
 impl<T, C, E> LoRaRadio for T
     where T: Transmit<Error=E>,
           T: Receive<Error=E, Info=LoRaInfo>,
-          T: State<State=LoRaState, Error=E>,
           T: Channel<Channel=C, Error=E>,
           T: Busy<Error=E>,
           T: DelayUs<u32>,
