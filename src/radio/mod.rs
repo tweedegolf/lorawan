@@ -13,6 +13,8 @@ pub use crate::radio::region::*;
 mod rate;
 mod region;
 
+const DELAY_MARGIN: Duration = Duration::from_micros(15);
+
 pub type Hz = u32;
 
 #[derive(Debug, Default)]
@@ -115,7 +117,7 @@ impl<T, I, C, E> LoRaRadio for T
         self.transmit(tx)?;
 
         self.set_channel(&rate.rx1().into())?;
-        self.delay_us(delay_1.as_micros() as u32);
+        self.delay_us((delay_1 - DELAY_MARGIN).as_micros() as u32);
 
         match self.receive(rx) {
             Err(BlockingError::Timeout) => {
