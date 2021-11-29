@@ -1,12 +1,12 @@
 use core::fmt::Debug;
 use core::time::Duration;
-use embedded_hal::blocking::delay::DelayUs;
 
+use embedded_hal::blocking::delay::DelayUs;
 use radio::{Busy, Channel, RadioState, Receive, ReceiveInfo, State, Transmit};
 use radio::blocking::BlockingError;
 use radio::modulation::lora::LoRaChannel;
-use crate::device::error::DeviceError;
 
+use crate::device::error::DeviceError;
 pub use crate::radio::rate::*;
 pub use crate::radio::region::*;
 
@@ -83,13 +83,14 @@ pub trait LoRaRadio {
     fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), BlockingError<Self::Error>>;
 }
 
-impl<T, E> LoRaRadio for T
+impl<T, C, E> LoRaRadio for T
     where T: Transmit<Error=E>,
           T: Receive<Error=E, Info=LoRaInfo>,
           T: State<State=LoRaState, Error=E>,
-          T: Channel<Channel=LoRaChannel, Error=E>,
+          T: Channel<Channel=C, Error=E>,
           T: Busy<Error=E>,
           T: DelayUs<u32>,
+          C: From<LoRaChannel>,
           E: Debug
 {
     type Error = E;
@@ -100,16 +101,16 @@ impl<T, E> LoRaRadio for T
         rx: &mut [u8],
         delay_1: Duration,
         delay_2: Duration,
-        rate: &DataRate<R>
+        rate: &DataRate<R>,
     ) -> Result<(usize, LoRaInfo), DeviceError<Self::Error>> {
         self.transmit(tx)?;
 
-        self.set_channel(&rate.rx1())?;
+        self.set_channel(&rate.rx1().into())?;
         self.delay_us(delay_1.as_micros() as u32);
 
         match self.receive(rx) {
             Err(BlockingError::Timeout) => {
-                self.set_channel(&rate.rx2())?;
+                self.set_channel(&rate.rx2().into())?;
                 self.delay_us((delay_2 - delay_1 - Self::TIMEOUT).as_micros() as u32);
 
                 self.receive(rx).map_err(|e| e.into())
