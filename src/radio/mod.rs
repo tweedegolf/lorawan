@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
-use radio::{Busy, Channel, RadioState, Receive, ReceiveInfo, Transmit};
+use radio::{BasicInfo, Busy, Channel, RadioState, Receive, ReceiveInfo, Transmit};
 use radio::blocking::BlockingError;
 use radio::modulation::lora::LoRaChannel;
 
@@ -49,6 +49,15 @@ impl ReceiveInfo for LoRaInfo {
     }
 }
 
+impl From<BasicInfo> for LoRaInfo {
+    fn from(info: BasicInfo) -> Self {
+        LoRaInfo {
+            rssi: info.rssi(),
+            snr: 0,
+        }
+    }
+}
+
 /// Combines all the radio traits necessary for LoRa into one trait, and provides useful methods to
 /// transmit messages.
 pub trait LoRaRadio {
@@ -83,12 +92,13 @@ pub trait LoRaRadio {
     fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), BlockingError<Self::Error>>;
 }
 
-impl<T, C, E> LoRaRadio for T
+impl<T, I, C, E> LoRaRadio for T
     where T: Transmit<Error=E>,
-          T: Receive<Error=E, Info=LoRaInfo>,
+          T: Receive<Error=E, Info=I>,
           T: Channel<Channel=C, Error=E>,
           T: Busy<Error=E>,
           T: DelayUs<u32>,
+          I: Into<LoRaInfo>,
           C: From<LoRaChannel>,
           E: Debug
 {
@@ -145,7 +155,7 @@ impl<T, C, E> LoRaRadio for T
 
             if self.check_receive(false)? {
                 let (n, i) = self.get_received(buf)?;
-                return Ok((n, i));
+                return Ok((n, i.into()));
             }
 
             time += Self::INTERVAL.as_micros();
