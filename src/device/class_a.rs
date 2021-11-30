@@ -1,7 +1,5 @@
 use core::fmt::Debug;
 
-use radio::blocking::BlockingError;
-
 use crate::device::{Device, DeviceState};
 use crate::device::error::DeviceError;
 use crate::lorawan::{Downlink, RECEIVE_DELAY1, RECEIVE_DELAY2, Uplink};
@@ -23,21 +21,20 @@ impl<T, R, E> ClassA<T, R>
         rx: &mut [u8],
     ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<E>> {
         let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
-        let result = self.0.radio.lorawan_transmit(
+        let downlink = self.0.radio.lorawan_transmit(
             uplink.as_bytes(),
             rx,
             RECEIVE_DELAY1,
             RECEIVE_DELAY2,
             self.0.state.data_rate(),
-        );
-        match result {
-            Ok((n, info)) => {
-                let downlink = Downlink::from_data(rx, &mut self.0.state)?;
+        )?;
+        match downlink {
+            None => Ok(None),
+            Some((n, info)) => {
+                let downlink = Downlink::from_data(&mut rx[..n], &mut self.0.state)?;
                 rx.copy_from_slice(downlink.as_bytes());
                 Ok(Some((n, info)))
             }
-            Err(DeviceError::Blocking(BlockingError::Timeout)) => Ok(None),
-            Err(error) => Err(error)
         }
     }
 

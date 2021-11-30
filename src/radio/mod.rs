@@ -3,7 +3,6 @@ use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
 use radio::{BasicInfo, Busy, Channel, RadioState, Receive, ReceiveInfo, Transmit};
-use radio::blocking::BlockingError;
 use radio::modulation::lora::LoRaChannel;
 
 use crate::device::error::DeviceError;
@@ -12,8 +11,6 @@ pub use crate::radio::region::*;
 
 mod rate;
 mod region;
-
-const DELAY_MARGIN: Duration = Duration::from_micros(15);
 
 pub type Hz = u32;
 
@@ -63,14 +60,20 @@ impl From<BasicInfo> for LoRaInfo {
 /// Combines all the radio traits necessary for LoRa into one trait, and provides useful methods to
 /// transmit messages.
 pub trait LoRaRadio {
+    /// The time the radio will have to transmit a message before a timeout occurs.
+    const TX_TIMEOUT: Duration = Duration::from_millis(4000);
+
     /// The time the radio will listen for a message on a channel. This must be long enough for the
     /// radio to receive a preamble, in which case it will continue listening for the message. It
     /// must not exceed one second, because the radio must switch to RX2 within that time if it does
     /// not receive a message on RX1.
-    const TIMEOUT: Duration = Duration::from_millis(500);
+    const RX_TIMEOUT: Duration = Duration::from_millis(500);
 
-    /// How often the radio will check whether a message has been received completely or not.
+    /// How often the radio will check whether a message has been sent or received completely.
     const INTERVAL: Duration = Duration::from_millis(100);
+
+    /// How much earlier to start listening for a message than `RX1_DELAY` and `RX2_DELAY`.
+    const DELAY_MARGIN: Duration = Duration::from_micros(15);
 
     type Error: Debug;
 
@@ -84,14 +87,14 @@ pub trait LoRaRadio {
         delay_1: Duration,
         delay_2: Duration,
         rate: &DataRate<R>,
-    ) -> Result<(usize, LoRaInfo), DeviceError<Self::Error>>;
+    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self::Error>>;
 
     /// Attempts to transmit a message.
-    fn transmit(&mut self, data: &[u8]) -> Result<(), BlockingError<Self::Error>>;
+    fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<Self::Error>>;
 
     /// Attempts to receive a message. This returns within one second if no message is being
     /// received, giving enough time to switch to RX2 if necessary.
-    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), BlockingError<Self::Error>>;
+    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<Self::Error>>;
 }
 
 impl<T, I, C, E> LoRaRadio for T
@@ -113,24 +116,29 @@ impl<T, I, C, E> LoRaRadio for T
         delay_1: Duration,
         delay_2: Duration,
         rate: &DataRate<R>,
-    ) -> Result<(usize, LoRaInfo), DeviceError<Self::Error>> {
+    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self::Error>> {
         self.transmit(tx)?;
 
         self.set_channel(&rate.rx1().into())?;
-        self.delay_us((delay_1 - DELAY_MARGIN).as_micros() as u32);
+        self.delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
 
         match self.receive(rx) {
-            Err(BlockingError::Timeout) => {
+            Ok((n, info)) => Ok(Some((n, info))),
+            Err(RadioError::Timeout) => {
                 self.set_channel(&rate.rx2().into())?;
-                self.delay_us((delay_2 - delay_1 - Self::TIMEOUT).as_micros() as u32);
+                self.delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
 
-                self.receive(rx).map_err(|e| e.into())
+                match self.receive(rx) {
+                    Ok((n, info)) => Ok(Some((n, info))),
+                    Err(RadioError::Timeout) => Ok(None),
+                    Err(error) => Err(error.into())
+                }
             }
-            result => result.map_err(|e| e.into())
+            Err(error) => Err(error.into())
         }
     }
 
-    fn transmit(&mut self, data: &[u8]) -> Result<(), BlockingError<Self::Error>> {
+    fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<E>> {
         self.start_transmit(data)?;
 
         let mut time = 0;
@@ -142,13 +150,13 @@ impl<T, I, C, E> LoRaRadio for T
             }
 
             time += Self::INTERVAL.as_micros();
-            if time > Self::TIMEOUT.as_micros() {
-                return Err(BlockingError::Timeout);
+            if time > Self::TX_TIMEOUT.as_micros() {
+                return Err(RadioError::Timeout);
             }
         }
     }
 
-    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), BlockingError<Self::Error>> {
+    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<E>> {
         self.start_receive()?;
 
         let mut time = 0;
@@ -161,9 +169,22 @@ impl<T, I, C, E> LoRaRadio for T
             }
 
             time += Self::INTERVAL.as_micros();
-            if time > Self::TIMEOUT.as_micros() && !self.is_busy()? {
-                return Err(BlockingError::Timeout);
+            if time > Self::RX_TIMEOUT.as_micros() && !self.is_busy()? {
+                return Err(RadioError::Timeout);
             }
         }
+    }
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(Format))]
+pub enum RadioError<E> {
+    Inner(E),
+    Timeout,
+}
+
+impl<E> From<E> for RadioError<E> {
+    fn from(e: E) -> Self {
+        RadioError::Inner(e)
     }
 }
