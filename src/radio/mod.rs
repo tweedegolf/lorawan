@@ -117,6 +117,7 @@ impl<T, I, C, E> LoRaRadio for T
         delay_2: Duration,
         rate: &DataRate<R>,
     ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self::Error>> {
+        self.set_channel(&rate.tx().into())?;
         self.transmit(tx)?;
 
         self.set_channel(&rate.rx1().into())?;

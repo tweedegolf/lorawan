@@ -25,6 +25,16 @@ impl<R> DataRate<R> {
 }
 
 impl<R: Region> DataRate<R> {
+    pub fn tx(&self) -> LoRaChannel {
+        // TODO: Pick channel at random
+        LoRaChannel {
+            freq_khz: R::TX_FREQUENCIES[0] / 1000,
+            bw_khz: (self.frequency / 1000) as u16,
+            sf: self.spreading_factor,
+            cr: CodingRate::Cr4_5,
+        }
+    }
+
     pub fn rx1(&self) -> LoRaChannel {
         // TODO: Pick channel at random
         LoRaChannel {
