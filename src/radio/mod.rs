@@ -117,21 +117,39 @@ impl<T, I, C, E> LoRaRadio for T
         delay_2: Duration,
         rate: &DataRate<R>,
     ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self::Error>> {
+        #[cfg(feature = "defmt")]
+        defmt::trace!("transmitting LoRaWAN packet");
         self.set_channel(&rate.tx().into())?;
         self.transmit(tx)?;
 
+        #[cfg(feature = "defmt")]
+        defmt::trace!("waiting for RX1 window");
         self.set_channel(&rate.rx1().into())?;
         self.delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
 
+        #[cfg(feature = "defmt")]
+        defmt::trace!("receiving on RX1");
         match self.receive(rx) {
             Ok((n, info)) => Ok(Some((n, info))),
             Err(RadioError::Timeout) => {
+                #[cfg(feature = "defmt")]
+                defmt::trace!("nothing received, waiting for RX2 window");
                 self.set_channel(&rate.rx2().into())?;
                 self.delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
 
+                #[cfg(feature = "defmt")]
+                defmt::trace!("receiving on RX2");
                 match self.receive(rx) {
-                    Ok((n, info)) => Ok(Some((n, info))),
-                    Err(RadioError::Timeout) => Ok(None),
+                    Ok((n, info)) => {
+                        #[cfg(feature = "defmt")]
+                        defmt::trace!("response received");
+                        Ok(Some((n, info)))
+                    },
+                    Err(RadioError::Timeout) => {
+                        #[cfg(feature = "defmt")]
+                        defmt::trace!("no response");
+                        Ok(None)
+                    },
                     Err(error) => Err(error.into())
                 }
             }
@@ -178,7 +196,7 @@ impl<T, I, C, E> LoRaRadio for T
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RadioError<E> {
     Inner(E),
     Timeout,

@@ -3,6 +3,7 @@ use radio::modulation::lora::SpreadingFactor;
 use crate::radio::{DataRate, Hz, Region};
 
 #[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct EU868;
 
 impl Region for EU868 {
@@ -36,10 +37,6 @@ impl Region for EU868 {
             .enumerate()
             .find_map(|(index, other)| (*other == *rate)
                 .then(|| PACKET_SIZE_LIMITS[index]))
-            .unwrap_or_else(|| {
-                #[cfg(feature = "defmt")]
-                defmt::error!("Unsupported data rate: {:?}", rate);
-                panic!("Unsupported data rate: {:?}", rate)
-            })
+            .unwrap_or_else(|| panic!("Unsupported data rate: {:?}", rate))
     }
 }
