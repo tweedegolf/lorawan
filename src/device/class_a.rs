@@ -5,6 +5,7 @@ use crate::device::error::DeviceError;
 use crate::lorawan::{Downlink, RECEIVE_DELAY1, RECEIVE_DELAY2, Uplink};
 use crate::radio::{LoRaInfo, LoRaRadio, Region};
 
+#[derive(Debug)]
 pub struct ClassA<T, R>(Device<T, DeviceState<R>>);
 
 impl<T, R, E> ClassA<T, R>
@@ -19,7 +20,7 @@ impl<T, R, E> ClassA<T, R>
         &mut self,
         tx: &[u8],
         rx: &mut [u8],
-    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<E>> {
+    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<T, E>> {
         let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
         let downlink = self.0.radio.lorawan_transmit(
             uplink.as_bytes(),

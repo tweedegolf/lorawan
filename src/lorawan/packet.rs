@@ -191,6 +191,7 @@ impl<'a> JoinAccept<'a> {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum PacketError<E> {
     InvalidDownlinkMACCommand,
     MICMismatch,

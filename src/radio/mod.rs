@@ -59,7 +59,7 @@ impl From<BasicInfo> for LoRaInfo {
 
 /// Combines all the radio traits necessary for LoRa into one trait, and provides useful methods to
 /// transmit messages.
-pub trait LoRaRadio {
+pub trait LoRaRadio: Sized {
     /// The time the radio will have to transmit a message before a timeout occurs.
     const TX_TIMEOUT: Duration = Duration::from_millis(4000);
 
@@ -87,7 +87,7 @@ pub trait LoRaRadio {
         delay_1: Duration,
         delay_2: Duration,
         rate: &DataRate<R>,
-    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self::Error>>;
+    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self, Self::Error>>;
 
     /// Attempts to transmit a message.
     fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<Self::Error>>;
@@ -116,7 +116,7 @@ impl<T, I, C, E> LoRaRadio for T
         delay_1: Duration,
         delay_2: Duration,
         rate: &DataRate<R>,
-    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self::Error>> {
+    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self, Self::Error>> {
         #[cfg(feature = "defmt")]
         defmt::trace!("transmitting LoRaWAN packet");
         self.set_channel(&rate.tx().into())?;

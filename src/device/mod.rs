@@ -12,6 +12,8 @@ mod state;
 
 /// Represents a generic LoRaWAN device. The state can be either [Credentials] for
 /// devices that have not joined a network, or [DeviceState] for devices that have.
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Device<T, S> {
     radio: T,
     state: S,
@@ -32,31 +34,36 @@ impl<T, E> Device<T, Credentials>
     }
 
     /// Attempts to join this device to a network.
-    pub fn join<R: Region>(mut self) -> Result<Device<T, DeviceState<R>>, DeviceError<E>> {
+    pub fn join<R: Region>(mut self) -> Result<Device<T, DeviceState<R>>, DeviceError<T, E>> {
         let dev_nonce = DevNonce::new(37);
 
         let join_request = JoinRequest::new(&self.state, &dev_nonce);
         let mut buf = [0; MAX_PACKET_SIZE];
         let dr0: DataRate<R> = DataRate::default();
 
-        let _ = self.radio.lorawan_transmit(
+        match self.radio.lorawan_transmit(
             join_request.payload(),
             &mut buf,
             JOIN_ACCEPT_DELAY1,
             JOIN_ACCEPT_DELAY2,
             &dr0,
-        )?;
+        )? {
+            None => Err(DeviceError::Join(self)),
+            Some((n, _)) => {
+                // TODO: Manage state
+                let (device_state, _) = JoinAccept::from_data(&mut buf[..n])?
+                    .extract_state::<R>(&self.state, &dev_nonce);
 
-        // TODO: Manage state
-        let (device_state, _) = JoinAccept::from_data(&mut buf)?
-            .extract_state::<R>(&self.state, &dev_nonce);
+                let device = Device {
+                    radio: self.radio,
+                    state: device_state,
+                };
 
-        let device = Device {
-            radio: self.radio,
-            state: device_state,
-        };
+                Ok(device)
+            }
+        }
 
-        Ok(device)
+
     }
 }
 

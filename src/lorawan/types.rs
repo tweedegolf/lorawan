@@ -1,5 +1,6 @@
 /// Application Unique Identifier
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AppEui([u8; 8]);
 
 impl AppEui {
@@ -14,6 +15,7 @@ impl AppEui {
 
 /// Device Unique Identifier
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct DevEui([u8; 8]);
 
 impl DevEui {
@@ -28,6 +30,7 @@ impl DevEui {
 
 /// Application Key
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AppKey([u8; 16]);
 
 impl AppKey {

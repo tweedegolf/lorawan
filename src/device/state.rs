@@ -4,6 +4,7 @@ use crate::radio::{DataRate, Region};
 /// Credentials needed to join a device to a network. A device that has not joined a network will
 /// use this as state.
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Credentials {
     app_eui: AppEui,
     dev_eui: DevEui,
