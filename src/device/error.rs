@@ -2,28 +2,25 @@ use crate::device::{Credentials, Device};
 use crate::lorawan::PacketError;
 use crate::radio::RadioError;
 
+/// Represents errors that can occur with the device for LoRaWAN transmission.
 #[derive(Debug)]
-pub enum DeviceError<T, E> {
-    Inner(E),
-    Join(Device<T, Credentials>),
-    Radio(RadioError<E>),
-    Packet(PacketError<E>),
+pub enum DeviceError<RXTX, TIM, RNG, ERR> {
+    /// The device failed to join a network.
+    Join(Device<RXTX, TIM, RNG, ERR, Credentials>),
+    /// Something went wrong with parsing or generating LoRaWAN packets.
+    Packet(PacketError),
+    /// Something went wrong with the hardware.
+    Radio(RadioError<ERR>),
 }
 
-impl<T, E> From<E> for DeviceError<T, E> {
-    fn from(e: E) -> Self {
-        DeviceError::Inner(e)
-    }
-}
-
-impl<T, E> From<RadioError<E>> for DeviceError<T, E> {
-    fn from(e: RadioError<E>) -> Self {
+impl<RXTX, TIM, RNG, ERR> From<RadioError<ERR>> for DeviceError<RXTX, TIM, RNG, ERR> {
+    fn from(e: RadioError<ERR>) -> Self {
         DeviceError::Radio(e)
     }
 }
 
-impl<T, E> From<PacketError<E>> for DeviceError<T, E> {
-    fn from(e: PacketError<E>) -> Self {
+impl<RXTX, TIM, RNG, ERR> From<PacketError> for DeviceError<RXTX, TIM, RNG, ERR> {
+    fn from(e: PacketError) -> Self {
         DeviceError::Packet(e)
     }
 }

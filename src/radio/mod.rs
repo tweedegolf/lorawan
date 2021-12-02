@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use core::marker::PhantomData;
 use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
@@ -14,30 +15,28 @@ mod region;
 
 pub type Hz = u32;
 
-#[derive(Debug, Default)]
-pub struct LoRaInfo {
-    rssi: i16,
-    snr: i8,
-}
-
-impl ReceiveInfo for LoRaInfo {
-    fn rssi(&self) -> i16 {
-        self.rssi
-    }
-}
-
-impl From<BasicInfo> for LoRaInfo {
-    fn from(info: BasicInfo) -> Self {
-        LoRaInfo {
-            rssi: info.rssi(),
-            snr: 0,
-        }
-    }
-}
-
-/// Combines all the radio traits necessary for LoRa into one trait, and provides useful methods to
+/// Combines all the traits necessary for LoRa into one struct, and provides useful methods to
 /// transmit messages.
-pub trait LoRaRadio: Sized {
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct LoRaRadio<RXTX, TIM, RNG, ERR> {
+    radio: RXTX,
+    tim: TIM,
+    rng: RNG,
+    err: PhantomData<ERR>,
+}
+
+impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
+    where RXTX: Receive<Error=ERR, Info=INFO>,
+          RXTX: Transmit<Error=ERR>,
+          RXTX: Channel<Channel=CH, Error=ERR>,
+          RXTX: Busy<Error=ERR>,
+          TIM: DelayUs<u32>,
+          RNG: RngCore,
+          ERR: Debug,
+          INFO: Into<LoRaInfo>,
+          CH: From<LoRaChannel>,
+{
     /// The time the radio will have to transmit a message before a timeout occurs.
     const TX_TIMEOUT: Duration = Duration::from_millis(4000);
 
@@ -53,64 +52,38 @@ pub trait LoRaRadio: Sized {
     /// How much earlier to start listening for a message than `RX1_DELAY` and `RX2_DELAY`.
     const DELAY_MARGIN: Duration = Duration::from_micros(15);
 
-    type Error: Debug;
+    /// Constructs a new LoRa radio.
+    pub fn new(radio: RXTX, tim: TIM, rng: RNG) -> Self {
+        LoRaRadio {
+            radio,
+            tim,
+            rng,
+            err: PhantomData,
+        }
+    }
 
     /// Basic LoRaWAN transmit. It transmits `tx`, then waits for a response on RX1, and if it does
     /// not receive anything, it waits for a response on RX2. The response is stored in `rx`. If no
     /// response is received, this method returns a timeout error.
-    fn lorawan_transmit<R: Region>(
+    pub fn lorawan_transmit<R: Region>(
         &mut self,
         tx: &[u8],
         rx: &mut [u8],
         delay_1: Duration,
         delay_2: Duration,
         rate: &DataRate<R>,
-    ) -> Result<Option<(usize, LoRaInfo)>, RadioError<Self::Error>>;
-
-    /// Attempts to transmit a message.
-    fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<Self::Error>>;
-
-    /// Attempts to receive a message. This returns within one second if no message is being
-    /// received, giving enough time to switch to RX2 if necessary.
-    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<Self::Error>>;
-
-    fn random_u8(&mut self) -> Result<u8, RadioError<Self::Error>>;
-
-    fn random_u16(&mut self) -> Result<u16, RadioError<Self::Error>>;
-}
-
-impl<T, I, C, E> LoRaRadio for T
-    where T: Transmit<Error=E>,
-          T: Receive<Error=E, Info=I>,
-          T: Channel<Channel=C, Error=E>,
-          T: Busy<Error=E>,
-          T: DelayUs<u32>,
-          T: RngCore,
-          I: Into<LoRaInfo>,
-          C: From<LoRaChannel>,
-          E: Debug
-{
-    type Error = E;
-
-    fn lorawan_transmit<R: Region>(
-        &mut self,
-        tx: &[u8],
-        rx: &mut [u8],
-        delay_1: Duration,
-        delay_2: Duration,
-        rate: &DataRate<R>,
-    ) -> Result<Option<(usize, LoRaInfo)>, RadioError<Self::Error>> {
+    ) -> Result<Option<(usize, LoRaInfo)>, RadioError<ERR>> {
         #[cfg(feature = "defmt")]
         defmt::trace!("transmitting LoRaWAN packet");
         let noise = self.random_u8()? as usize;
-        self.set_channel(&rate.tx(noise).into())?;
+        self.radio.set_channel(&rate.tx(noise).into())?;
         self.transmit(tx)?;
 
         #[cfg(feature = "defmt")]
         defmt::trace!("waiting for RX1 window");
         let noise = self.random_u8()? as usize;
-        self.set_channel(&rate.rx1(noise).into())?;
-        self.delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
+        self.radio.set_channel(&rate.rx1(noise).into())?;
+        self.tim.delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
 
         #[cfg(feature = "defmt")]
         defmt::trace!("receiving on RX1");
@@ -120,8 +93,8 @@ impl<T, I, C, E> LoRaRadio for T
                 #[cfg(feature = "defmt")]
                 defmt::trace!("nothing received, waiting for RX2 window");
                 let noise = self.random_u8()? as usize;
-                self.set_channel(&rate.rx2(noise).into())?;
-                self.delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
+                self.radio.set_channel(&rate.rx2(noise).into())?;
+                self.tim.delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
 
                 #[cfg(feature = "defmt")]
                 defmt::trace!("receiving on RX2");
@@ -143,14 +116,15 @@ impl<T, I, C, E> LoRaRadio for T
         }
     }
 
-    fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<E>> {
-        self.start_transmit(data)?;
+    /// Attempts to transmit a message.
+    fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<ERR>> {
+        self.radio.start_transmit(data)?;
 
         let mut time = 0;
         loop {
-            self.delay_us(Self::INTERVAL.as_micros() as u32);
+            self.tim.delay_us(Self::INTERVAL.as_micros() as u32);
 
-            if self.check_transmit()? {
+            if self.radio.check_transmit()? {
                 return Ok(());
             }
 
@@ -161,47 +135,73 @@ impl<T, I, C, E> LoRaRadio for T
         }
     }
 
-    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<E>> {
-        self.start_receive()?;
+    /// Attempts to receive a message. This returns within one second if no message is being
+    /// received, giving enough time to switch to RX2 if necessary.
+    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<ERR>> {
+        self.radio.start_receive()?;
 
         let mut time = 0;
         loop {
-            self.delay_us(Self::INTERVAL.as_micros() as u32);
+            self.tim.delay_us(Self::INTERVAL.as_micros() as u32);
 
-            if self.check_receive(false)? {
-                let (n, i) = self.get_received(buf)?;
+            if self.radio.check_receive(false)? {
+                let (n, i) = self.radio.get_received(buf)?;
                 return Ok((n, i.into()));
             }
 
             time += Self::INTERVAL.as_micros();
-            if time > Self::RX_TIMEOUT.as_micros() && !self.is_busy()? {
+            if time > Self::RX_TIMEOUT.as_micros() && !self.radio.is_busy()? {
                 return Err(RadioError::Timeout);
             }
         }
     }
 
-    fn random_u8(&mut self) -> Result<u8, RadioError<Self::Error>> {
+    fn random_u8(&mut self) -> Result<u8, RadioError<ERR>> {
         let mut byte = [0];
-        self.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
+        self.rng.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
         Ok(byte[0])
     }
 
-    fn random_u16(&mut self) -> Result<u16, RadioError<Self::Error>> {
+    pub(crate) fn random_nonce(&mut self) -> Result<u16, RadioError<ERR>> {
         let mut byte = [0, 0];
-        self.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
+        self.rng.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
         Ok(u16::from_le_bytes(byte))
     }
 }
 
 #[derive(Debug)]
-pub enum RadioError<E> {
-    Inner(E),
+pub enum RadioError<ERR> {
+    /// The radio returned its own error.
+    Radio(ERR),
+    /// Failed to generate a random number.
     Random(rand_core::Error),
     Timeout,
 }
 
 impl<E> From<E> for RadioError<E> {
     fn from(e: E) -> Self {
-        RadioError::Inner(e)
+        RadioError::Radio(e)
+    }
+}
+
+// TODO: Move to radio-hal
+#[derive(Debug, Default)]
+pub struct LoRaInfo {
+    rssi: i16,
+    snr: i8,
+}
+
+impl ReceiveInfo for LoRaInfo {
+    fn rssi(&self) -> i16 {
+        self.rssi
+    }
+}
+
+impl From<BasicInfo> for LoRaInfo {
+    fn from(info: BasicInfo) -> Self {
+        LoRaInfo {
+            rssi: info.rssi(),
+            snr: 0,
+        }
     }
 }

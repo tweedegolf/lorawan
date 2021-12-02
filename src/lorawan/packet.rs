@@ -1,7 +1,5 @@
 #![allow(unused_variables)]
 
-use core::marker::PhantomData;
-
 use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
 use lorawan_encoding::maccommands::MacCommand;
@@ -18,11 +16,11 @@ pub const MAX_PACKET_SIZE: usize = 242;
 pub struct Uplink([u8; MAX_PACKET_SIZE], usize);
 
 impl Uplink {
-    pub fn new<R: Region, E>(
+    pub fn new<R: Region>(
         payload: &[u8],
         port: u8,
         state: &mut DeviceState<R>,
-    ) -> Result<Self, PacketError<E>> {
+    ) -> Result<Self, PacketError> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -52,10 +50,10 @@ impl Uplink {
 pub struct Downlink([u8; MAX_PACKET_SIZE], usize);
 
 impl Downlink {
-    pub fn from_data<R: Region, E>(
+    pub fn from_data<R: Region>(
         data: &mut [u8],
         state: &mut DeviceState<R>,
-    ) -> Result<Self, PacketError<E>> {
+    ) -> Result<Self, PacketError> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -111,7 +109,7 @@ impl Downlink {
                 }
             }
         } else {
-            Err(PacketError::Encoding("", PhantomData))
+            Err(PacketError::Encoding(""))
         }
     }
 
@@ -147,7 +145,7 @@ impl JoinRequest {
 pub struct JoinAccept<'a>(EncryptedJoinAcceptPayload<&'a mut [u8], DefaultFactory>);
 
 impl<'a> JoinAccept<'a> {
-    pub fn from_data<E>(data: &'a mut [u8]) -> Result<Self, PacketError<E>> {
+    pub fn from_data(data: &'a mut [u8]) -> Result<Self, PacketError> {
         let payload = EncryptedJoinAcceptPayload::new(data)?;
         Ok(JoinAccept(payload))
     }
@@ -190,16 +188,16 @@ impl<'a> JoinAccept<'a> {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum PacketError<E> {
+pub enum PacketError {
     InvalidDownlinkMACCommand,
     MICMismatch,
     InvalidPort(u8),
     InvalidMACPort,
-    Encoding(&'static str, PhantomData<E>),
+    Encoding(&'static str),
 }
 
-impl<E> From<&'static str> for PacketError<E> {
+impl From<&'static str> for PacketError {
     fn from(error: &'static str) -> Self {
-        PacketError::Encoding(error, PhantomData)
+        PacketError::Encoding(error)
     }
 }

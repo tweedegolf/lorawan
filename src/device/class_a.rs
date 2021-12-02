@@ -1,17 +1,29 @@
 use core::fmt::Debug;
 
+use embedded_hal::blocking::delay::DelayUs;
+use radio::{Busy, Channel, Receive, Transmit};
+use radio::modulation::lora::LoRaChannel;
+use rand_core::RngCore;
+
 use crate::device::{Device, DeviceState};
 use crate::device::error::DeviceError;
 use crate::lorawan::{Downlink, RECEIVE_DELAY1, RECEIVE_DELAY2, Uplink};
-use crate::radio::{LoRaInfo, LoRaRadio, Region};
+use crate::radio::{LoRaInfo, Region};
 
 #[derive(Debug)]
-pub struct ClassA<T, R>(Device<T, DeviceState<R>>);
+pub struct ClassA<RXTX, TIM, RNG, ERR, R>(Device<RXTX, TIM, RNG, ERR, DeviceState<R>>);
 
-impl<T, R, E> ClassA<T, R>
-    where T: LoRaRadio<Error=E>,
-          R: Region,
-          E: Debug
+impl<RXTX, TIM, RNG, ERR, INFO, CH, R> ClassA<RXTX, TIM, RNG, ERR, R>
+    where RXTX: Receive<Error=ERR, Info=INFO>,
+          RXTX: Transmit<Error=ERR>,
+          RXTX: Channel<Channel=CH, Error=ERR>,
+          RXTX: Busy<Error=ERR>,
+          TIM: DelayUs<u32>,
+          RNG: RngCore,
+          ERR: Debug,
+          INFO: Into<LoRaInfo>,
+          CH: From<LoRaChannel>,
+          R: Region
 {
     /// Transmits `tx` and waits for an optional response, storing it in `rx` and returning the size
     /// and packet information if applicable. This takes care of encryption and decryption, timing,
@@ -20,7 +32,7 @@ impl<T, R, E> ClassA<T, R>
         &mut self,
         tx: &[u8],
         rx: &mut [u8],
-    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<T, E>> {
+    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<RXTX, TIM, RNG, ERR>> {
         let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
         let downlink = self.0.radio.lorawan_transmit(
             uplink.as_bytes(),
@@ -46,8 +58,8 @@ impl<T, R, E> ClassA<T, R>
     }
 }
 
-impl<T, R> From<Device<T, DeviceState<R>>> for ClassA<T, R> {
-    fn from(device: Device<T, DeviceState<R>>) -> Self {
+impl<RXTX, TIM, RNG, ERR, R> From<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>> for ClassA<RXTX, TIM, RNG, ERR, R> {
+    fn from(device: Device<RXTX, TIM, RNG, ERR, DeviceState<R>>) -> Self {
         ClassA(device)
     }
 }
