@@ -81,6 +81,7 @@ impl<R: Region> DeviceState<R> {
 
 /// Session data for a device joined to a network.
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Session {
     dev_addr: DevAddr,
     nwk_skey: NwkSKey,

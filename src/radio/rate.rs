@@ -2,7 +2,9 @@ use core::marker::PhantomData;
 
 use radio::modulation::lora::{CodingRate, LoRaChannel, SpreadingFactor};
 
-use crate::radio::{Hz, Region};
+use crate::radio::Region;
+
+pub type Hz = u32;
 
 #[derive(Debug, PartialEq)]
 pub struct DataRate<R> {
@@ -12,10 +14,7 @@ pub struct DataRate<R> {
 }
 
 impl<R> DataRate<R> {
-    pub(in crate::radio) const fn new(
-        spreading_factor: SpreadingFactor,
-        frequency: Hz
-    ) -> Self {
+    pub(in crate::radio) const fn new(spreading_factor: SpreadingFactor, frequency: Hz) -> Self {
         DataRate {
             spreading_factor,
             frequency,
@@ -54,7 +53,7 @@ impl<R: Region> DataRate<R> {
 }
 
 impl<R: Region> Default for DataRate<R> {
-    /// Returns the appropriate DR0 for this region.
+    /// Returns DR0 for this region.
     fn default() -> Self {
         R::DATA_RATES[0].clone()
     }

@@ -7,12 +7,7 @@ use crate::radio::{DataRate, Hz, Region};
 pub struct EU868;
 
 impl Region for EU868 {
-    const JOIN_FREQUENCIES: &'static [Hz] = &[
-        // Default channels
-        868_100_000,
-        868_300_000,
-        868_500_000,
-    ];
+    const JOIN_FREQUENCIES: &'static [Hz] = &[868_100_000, 868_300_000, 868_500_000];
 
     const TX_FREQUENCIES: &'static [Hz] = Self::JOIN_FREQUENCIES;
 

@@ -15,6 +15,9 @@ mod class_a;
 pub mod error;
 mod state;
 
+type JoinResult<RXTX, TIM, RNG, ERR, R> = Result<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>,
+    DeviceError<RXTX, TIM, RNG, ERR>>;
+
 /// Represents a generic LoRaWAN device. The state can be either [Credentials] for
 /// devices that have not joined a network, or [DeviceState] for devices that have.
 #[derive(Debug)]
@@ -46,7 +49,7 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> Device<RXTX, TIM, RNG, ERR, Credentials>
     }
 
     /// Attempts to join this device to a network.
-    pub fn join<R: Region>(mut self) -> Result<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>, DeviceError<RXTX, TIM, RNG, ERR>> {
+    pub fn join<R: Region>(mut self) -> JoinResult<RXTX, TIM, RNG, ERR, R> {
         let dev_nonce = DevNonce::new(self.radio.random_nonce()?);
 
         let join_request = JoinRequest::new(&self.state, &dev_nonce);

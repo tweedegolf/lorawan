@@ -2,7 +2,7 @@ use crate::device::{Credentials, Device};
 use crate::lorawan::PacketError;
 use crate::radio::RadioError;
 
-/// Represents errors that can occur with the device for LoRaWAN transmission.
+/// Represents errors that can occur when using the device for LoRaWAN transmission.
 #[derive(Debug)]
 pub enum DeviceError<RXTX, TIM, RNG, ERR> {
     /// The device failed to join a network.

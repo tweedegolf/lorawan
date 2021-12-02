@@ -13,8 +13,6 @@ pub use crate::radio::region::*;
 mod rate;
 mod region;
 
-pub type Hz = u32;
-
 /// Combines all the traits necessary for LoRa into one struct, and provides useful methods to
 /// transmit messages.
 #[derive(Debug)]

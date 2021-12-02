@@ -10,6 +10,9 @@ use crate::device::error::DeviceError;
 use crate::lorawan::{Downlink, RECEIVE_DELAY1, RECEIVE_DELAY2, Uplink};
 use crate::radio::{LoRaInfo, Region};
 
+type TransmitResult<RXTX, TIM, RNG, ERR> = Result<Option<(usize, LoRaInfo)>,
+    DeviceError<RXTX, TIM, RNG, ERR>>;
+
 #[derive(Debug)]
 pub struct ClassA<RXTX, TIM, RNG, ERR, R>(Device<RXTX, TIM, RNG, ERR, DeviceState<R>>);
 
@@ -32,7 +35,7 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH, R> ClassA<RXTX, TIM, RNG, ERR, R>
         &mut self,
         tx: &[u8],
         rx: &mut [u8],
-    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<RXTX, TIM, RNG, ERR>> {
+    ) -> TransmitResult<RXTX, TIM, RNG, ERR> {
         let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
         let downlink = self.0.radio.lorawan_transmit(
             uplink.as_bytes(),
@@ -58,7 +61,8 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH, R> ClassA<RXTX, TIM, RNG, ERR, R>
     }
 }
 
-impl<RXTX, TIM, RNG, ERR, R> From<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>> for ClassA<RXTX, TIM, RNG, ERR, R> {
+impl<RXTX, TIM, RNG, ERR, R> From<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>>
+for ClassA<RXTX, TIM, RNG, ERR, R> {
     fn from(device: Device<RXTX, TIM, RNG, ERR, DeviceState<R>>) -> Self {
         ClassA(device)
     }

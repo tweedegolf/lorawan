@@ -45,6 +45,7 @@ impl AppKey {
 
 /// Device Address
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct DevAddr([u8; 4]);
 
 impl DevAddr {
@@ -63,6 +64,7 @@ impl DevAddr {
 
 /// Network Session Key
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct NwkSKey([u8; 16]);
 
 impl NwkSKey {
@@ -81,6 +83,7 @@ impl NwkSKey {
 
 /// Application Session Key
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AppSKey([u8; 16]);
 
 impl AppSKey {
@@ -99,6 +102,7 @@ impl AppSKey {
 
 /// Device Nonce
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct DevNonce([u8; 2]);
 
 impl DevNonce {
