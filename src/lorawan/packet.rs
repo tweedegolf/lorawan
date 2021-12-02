@@ -11,7 +11,7 @@ use lorawan_encoding::parser::{DataHeader, DataPayload, EncryptedJoinAcceptPaylo
 
 use crate::device::{Credentials, DeviceState, Session};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
-use crate::radio::{Hz, LoRaState, Region};
+use crate::radio::{Hz, Region};
 
 pub const MAX_PACKET_SIZE: usize = 242;
 
@@ -156,7 +156,7 @@ impl<'a> JoinAccept<'a> {
         self,
         credentials: &Credentials,
         dev_nonce: &DevNonce,
-    ) -> (DeviceState<R>, LoRaState) {
+    ) -> DeviceState<R> {
         let app_key = (*credentials.app_key().as_bytes()).into();
         let dev_nonce = dev_nonce.as_bytes().into();
 
@@ -170,10 +170,8 @@ impl<'a> JoinAccept<'a> {
 
         let session = Session::new(dev_addr, nwk_skey, app_skey);
 
-        let mut state = LoRaState::default();
-
-        state.set_rx_delay(payload.rx_delay());
-
+        // TODO: Save state
+        let rx_delay = payload.rx_delay();
         let dl_settings = payload.dl_settings();
         let cf_list = payload
             .c_f_list()
@@ -186,7 +184,7 @@ impl<'a> JoinAccept<'a> {
             );
         let net_id = payload.net_id();
 
-        (DeviceState::new(session), state)
+        DeviceState::new(session)
     }
 }
 

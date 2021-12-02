@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
-use radio::{BasicInfo, Busy, Channel, RadioState, Receive, ReceiveInfo, Transmit};
+use radio::{BasicInfo, Busy, Channel, Receive, ReceiveInfo, Transmit};
 use radio::modulation::lora::LoRaChannel;
 use rand_core::RngCore;
 
@@ -13,28 +13,6 @@ mod rate;
 mod region;
 
 pub type Hz = u32;
-
-#[derive(Debug, Default)]
-pub struct LoRaState {
-    rx_delay: u8,
-}
-
-impl LoRaState {
-    pub fn set_rx_delay(&mut self, rx_delay: u8) -> &mut Self {
-        self.rx_delay = rx_delay;
-        self
-    }
-}
-
-impl RadioState for LoRaState {
-    fn idle() -> Self {
-        todo!()
-    }
-
-    fn sleep() -> Self {
-        todo!()
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct LoRaInfo {

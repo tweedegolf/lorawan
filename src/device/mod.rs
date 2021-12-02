@@ -50,8 +50,7 @@ impl<T, E> Device<T, Credentials>
         )? {
             None => Err(DeviceError::Join(self)),
             Some((n, _)) => {
-                // TODO: Manage state
-                let (device_state, _) = JoinAccept::from_data(&mut buf[..n])?
+                let device_state = JoinAccept::from_data(&mut buf[..n])?
                     .extract_state::<R>(&self.state, &dev_nonce);
 
                 let device = Device {
