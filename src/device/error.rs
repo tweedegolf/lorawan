@@ -3,7 +3,6 @@ use crate::lorawan::PacketError;
 use crate::radio::RadioError;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DeviceError<T, E> {
     Inner(E),
     Join(Device<T, Credentials>),

@@ -4,8 +4,8 @@ use core::time::Duration;
 use embedded_hal::blocking::delay::DelayUs;
 use radio::{BasicInfo, Busy, Channel, RadioState, Receive, ReceiveInfo, Transmit};
 use radio::modulation::lora::LoRaChannel;
+use rand_core::RngCore;
 
-use crate::device::error::DeviceError;
 pub use crate::radio::rate::*;
 pub use crate::radio::region::*;
 
@@ -87,7 +87,7 @@ pub trait LoRaRadio: Sized {
         delay_1: Duration,
         delay_2: Duration,
         rate: &DataRate<R>,
-    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self, Self::Error>>;
+    ) -> Result<Option<(usize, LoRaInfo)>, RadioError<Self::Error>>;
 
     /// Attempts to transmit a message.
     fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<Self::Error>>;
@@ -95,6 +95,10 @@ pub trait LoRaRadio: Sized {
     /// Attempts to receive a message. This returns within one second if no message is being
     /// received, giving enough time to switch to RX2 if necessary.
     fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<Self::Error>>;
+
+    fn random_u8(&mut self) -> Result<u8, RadioError<Self::Error>>;
+
+    fn random_u16(&mut self) -> Result<u16, RadioError<Self::Error>>;
 }
 
 impl<T, I, C, E> LoRaRadio for T
@@ -103,6 +107,7 @@ impl<T, I, C, E> LoRaRadio for T
           T: Channel<Channel=C, Error=E>,
           T: Busy<Error=E>,
           T: DelayUs<u32>,
+          T: RngCore,
           I: Into<LoRaInfo>,
           C: From<LoRaChannel>,
           E: Debug
@@ -116,15 +121,17 @@ impl<T, I, C, E> LoRaRadio for T
         delay_1: Duration,
         delay_2: Duration,
         rate: &DataRate<R>,
-    ) -> Result<Option<(usize, LoRaInfo)>, DeviceError<Self, Self::Error>> {
+    ) -> Result<Option<(usize, LoRaInfo)>, RadioError<Self::Error>> {
         #[cfg(feature = "defmt")]
         defmt::trace!("transmitting LoRaWAN packet");
-        self.set_channel(&rate.tx().into())?;
+        let noise = self.random_u8()? as usize;
+        self.set_channel(&rate.tx(noise).into())?;
         self.transmit(tx)?;
 
         #[cfg(feature = "defmt")]
         defmt::trace!("waiting for RX1 window");
-        self.set_channel(&rate.rx1().into())?;
+        let noise = self.random_u8()? as usize;
+        self.set_channel(&rate.rx1(noise).into())?;
         self.delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
 
         #[cfg(feature = "defmt")]
@@ -134,7 +141,8 @@ impl<T, I, C, E> LoRaRadio for T
             Err(RadioError::Timeout) => {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("nothing received, waiting for RX2 window");
-                self.set_channel(&rate.rx2().into())?;
+                let noise = self.random_u8()? as usize;
+                self.set_channel(&rate.rx2(noise).into())?;
                 self.delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
 
                 #[cfg(feature = "defmt")]
@@ -144,16 +152,16 @@ impl<T, I, C, E> LoRaRadio for T
                         #[cfg(feature = "defmt")]
                         defmt::trace!("response received");
                         Ok(Some((n, info)))
-                    },
+                    }
                     Err(RadioError::Timeout) => {
                         #[cfg(feature = "defmt")]
                         defmt::trace!("no response");
                         Ok(None)
-                    },
-                    Err(error) => Err(error.into())
+                    }
+                    Err(error) => Err(error)
                 }
             }
-            Err(error) => Err(error.into())
+            Err(error) => Err(error)
         }
     }
 
@@ -193,12 +201,24 @@ impl<T, I, C, E> LoRaRadio for T
             }
         }
     }
+
+    fn random_u8(&mut self) -> Result<u8, RadioError<Self::Error>> {
+        let mut byte = [0];
+        self.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
+        Ok(byte[0])
+    }
+
+    fn random_u16(&mut self) -> Result<u16, RadioError<Self::Error>> {
+        let mut byte = [0, 0];
+        self.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
+        Ok(u16::from_le_bytes(byte))
+    }
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RadioError<E> {
     Inner(E),
+    Random(rand_core::Error),
     Timeout,
 }
 

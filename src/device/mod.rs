@@ -35,7 +35,7 @@ impl<T, E> Device<T, Credentials>
 
     /// Attempts to join this device to a network.
     pub fn join<R: Region>(mut self) -> Result<Device<T, DeviceState<R>>, DeviceError<T, E>> {
-        let dev_nonce = DevNonce::new(37);
+        let dev_nonce = DevNonce::new(self.radio.random_u16()?);
 
         let join_request = JoinRequest::new(&self.state, &dev_nonce);
         let mut buf = [0; MAX_PACKET_SIZE];
