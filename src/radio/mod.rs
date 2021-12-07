@@ -79,7 +79,6 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
 
         #[cfg(feature = "defmt")]
         defmt::trace!("waiting for RX1 window");
-        let noise = self.random_u8()? as usize;
         self.radio.set_channel(&rate.rx1(noise).into())?;
         self.tim.delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
 
@@ -90,7 +89,6 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
             Err(RadioError::Timeout) => {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("nothing received, waiting for RX2 window");
-                let noise = self.random_u8()? as usize;
                 self.radio.set_channel(&rate.rx2(noise).into())?;
                 self.tim.delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
 
