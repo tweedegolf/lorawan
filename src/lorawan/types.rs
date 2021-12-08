@@ -167,9 +167,9 @@ pub struct Encrypted<K, T> {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum PhyPayload<L, R> {
+pub enum PhyPayload<'a, L, R> {
     Data(MHDR, MACPayload<L>, MIC),
-    Request(MHDR, Request, MIC),
+    Request(MHDR, Request<'a>, MIC),
     Accept(MHDR, JoinAccept<R>),
 }
 
@@ -378,11 +378,11 @@ pub struct FRMPayload<L>([u8; MAX_FRM_PAYLOAD_LENGTH], PhantomData<L>);
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum Request {
-    Join(JoinEui, DevEui, DevNonce),
+pub enum Request<'a> {
+    Join(&'a JoinEui, &'a DevEui, &'a DevNonce),
 }
 
-impl Write for Request {
+impl Write for Request<'_> {
     fn write_to(&self, buf: &mut [u8]) -> usize {
         match self {
             Request::Join(join_eui, dev_eui, dev_nonce) => {

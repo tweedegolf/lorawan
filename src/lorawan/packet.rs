@@ -123,12 +123,7 @@ pub struct JoinRequest([u8; 23]);
 impl JoinRequest {
     pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> JoinRequest {
         let mhdr = MHDR::new(MType::JoinRequest, Major::LoRaWANR1);
-        // TODO: Use references
-        let request = Request::Join(
-            credentials.join_eui().clone(),
-            credentials.dev_eui().clone(),
-            dev_nonce.clone(),
-        );
+        let request = Request::Join(credentials.join_eui(), credentials.dev_eui(), dev_nonce);
 
         let mut bytes = [0; 23];
         let mut offset = 0;
