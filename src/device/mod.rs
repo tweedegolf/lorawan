@@ -66,7 +66,7 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> Device<RXTX, TIM, RNG, ERR, Credentials>
             None => Err(DeviceError::Join(self)),
             Some((n, _)) => {
                 let device_state = JoinAccept::from_data(&mut buf[..n])?
-                    .extract_state::<R>(&self.state, &dev_nonce);
+                    .extract_state(&self.state, &dev_nonce);
 
                 let device = Device {
                     radio: self.radio,

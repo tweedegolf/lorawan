@@ -1,4 +1,4 @@
-use crate::lorawan::{AppEui, AppKey, AppSKey, DevAddr, DevEui, NwkSKey};
+use crate::lorawan::{JoinEui, AppKey, AppSKey, DevAddr, DevEui, NwkSEncKey};
 use crate::radio::{DataRate, Region};
 
 /// Credentials needed to join a device to a network. A device that has not joined a network will
@@ -6,13 +6,13 @@ use crate::radio::{DataRate, Region};
 #[derive(Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Credentials {
-    app_eui: AppEui,
+    app_eui: JoinEui,
     dev_eui: DevEui,
     app_key: AppKey,
 }
 
 impl Credentials {
-    pub fn new(app_eui: AppEui, dev_eui: DevEui, app_key: AppKey) -> Self {
+    pub fn new(app_eui: JoinEui, dev_eui: DevEui, app_key: AppKey) -> Self {
         Credentials {
             app_eui,
             dev_eui,
@@ -20,7 +20,7 @@ impl Credentials {
         }
     }
 
-    pub fn app_eui(&self) -> &AppEui {
+    pub fn app_eui(&self) -> &JoinEui {
         &self.app_eui
     }
 
@@ -54,12 +54,14 @@ impl<R: Region> DeviceState<R> {
         }
     }
 
-    pub fn session(&self) -> &Session {
-        &self.session
-    }
-
     pub fn data_rate(&self) -> &DataRate<R> {
         &self.data_rate
+    }
+}
+
+impl<R> DeviceState<R> {
+    pub fn session(&self) -> &Session {
+        &self.session
     }
 
     pub fn fcnt_up(&self) -> u32 {
@@ -84,13 +86,13 @@ impl<R: Region> DeviceState<R> {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Session {
     dev_addr: DevAddr,
-    nwk_skey: NwkSKey,
+    nwk_skey: NwkSEncKey,
     app_skey: AppSKey,
 }
 
 impl Session {
     /// Creates a session directly for ABP.
-    pub fn new(dev_addr: DevAddr, nwk_skey: NwkSKey, app_skey: AppSKey) -> Self {
+    pub fn new(dev_addr: DevAddr, nwk_skey: NwkSEncKey, app_skey: AppSKey) -> Self {
         Session {
             dev_addr,
             nwk_skey,
@@ -102,7 +104,7 @@ impl Session {
         &self.dev_addr
     }
 
-    pub fn nwk_skey(&self) -> &NwkSKey {
+    pub fn nwk_s_enc_key(&self) -> &NwkSEncKey {
         &self.nwk_skey
     }
 
