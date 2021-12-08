@@ -1,22 +1,24 @@
 use core::fmt::Debug;
 
 use embedded_hal::blocking::delay::DelayUs;
-use radio::{Busy, Channel, Receive, Transmit};
 use radio::modulation::lora::LoRaChannel;
+use radio::{Busy, Channel, Receive, Transmit};
 use rand_core::RngCore;
 
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
 pub use crate::device::state::*;
-use crate::lorawan::{DevNonce, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, JoinAccept, JoinRequest, MAX_PACKET_SIZE};
+use crate::lorawan::{
+    DevNonce, JoinAccept, JoinRequest, JOIN_ACCEPT_DELAY1, JOIN_ACCEPT_DELAY2, MAX_PACKET_SIZE,
+};
 use crate::radio::{DataRate, LoRaInfo, LoRaRadio, Region};
 
 mod class_a;
 pub mod error;
 mod state;
 
-type JoinResult<RXTX, TIM, RNG, ERR, R> = Result<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>,
-    DeviceError<RXTX, TIM, RNG, ERR>>;
+type JoinResult<RXTX, TIM, RNG, ERR, R> =
+    Result<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>, DeviceError<RXTX, TIM, RNG, ERR>>;
 
 /// Represents a generic LoRaWAN device. The state can be either [Credentials] for
 /// devices that have not joined a network, or [DeviceState] for devices that have.
@@ -28,15 +30,16 @@ pub struct Device<RXTX, TIM, RNG, ERR, STATE> {
 }
 
 impl<RXTX, TIM, RNG, ERR, INFO, CH> Device<RXTX, TIM, RNG, ERR, Credentials>
-    where RXTX: Receive<Error=ERR, Info=INFO>,
-          RXTX: Transmit<Error=ERR>,
-          RXTX: Channel<Channel=CH, Error=ERR>,
-          RXTX: Busy<Error=ERR>,
-          TIM: DelayUs<u32>,
-          RNG: RngCore,
-          ERR: Debug,
-          INFO: Into<LoRaInfo>,
-          CH: From<LoRaChannel>
+where
+    RXTX: Receive<Error = ERR, Info = INFO>,
+    RXTX: Transmit<Error = ERR>,
+    RXTX: Channel<Channel = CH, Error = ERR>,
+    RXTX: Busy<Error = ERR>,
+    TIM: DelayUs<u32>,
+    RNG: RngCore,
+    ERR: Debug,
+    INFO: Into<LoRaInfo>,
+    CH: From<LoRaChannel>,
 {
     /// Creates a new LoRaWAN device through Over-The-Air-Activation. It must join a network with
     /// [join] before it can be used. Alternatively, an ABP-joined device can be constructed with
@@ -65,8 +68,8 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> Device<RXTX, TIM, RNG, ERR, Credentials>
         )? {
             None => Err(DeviceError::Join(self)),
             Some((n, _)) => {
-                let device_state = JoinAccept::from_data(&mut buf[..n])?
-                    .extract_state(&self.state, &dev_nonce);
+                let device_state =
+                    JoinAccept::from_data(&mut buf[..n])?.extract_state(&self.state, &dev_nonce);
 
                 let device = Device {
                     radio: self.radio,
@@ -80,18 +83,16 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> Device<RXTX, TIM, RNG, ERR, Credentials>
 }
 
 impl<RXTX, TIM, RNG, ERR, R> Device<RXTX, TIM, RNG, ERR, DeviceState<R>>
-    where R: Region,
-          ERR: Debug
+where
+    R: Region,
+    ERR: Debug,
 {
     /// Creates a joined device through Activation By Personalization. Consider using [new_otaa]
     /// instead, as it is more secure.
     pub fn new_abp(radio: LoRaRadio<RXTX, TIM, RNG, ERR>, session: Session) -> Self {
         let state = DeviceState::new(session);
 
-        Device {
-            radio,
-            state,
-        }
+        Device { radio, state }
     }
 
     /// Configures this device to have class A behavior: listening for downlinks only after

@@ -363,7 +363,14 @@ pub enum Request {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct JoinAccept<R>(JoinNonce, HomeNetId, DevAddr, DlSettings, RxDelay, Option<CFList<R>>);
+pub struct JoinAccept<R>(
+    JoinNonce,
+    HomeNetId,
+    DevAddr,
+    DlSettings,
+    RxDelay,
+    Option<CFList<R>>,
+);
 
 impl<R> JoinAccept<R> {
     pub fn from_data(data: &mut [u8]) -> Result<Self, PacketError> {
@@ -372,11 +379,7 @@ impl<R> JoinAccept<R> {
         todo!()
     }
 
-    pub fn extract_state(
-        self,
-        credentials: &Credentials,
-        dev_nonce: &DevNonce,
-    ) -> DeviceState<R> {
+    pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> DeviceState<R> {
         // let app_key = (*credentials.app_key().as_bytes()).into();
         // let dev_nonce = dev_nonce.as_bytes().into();
         //

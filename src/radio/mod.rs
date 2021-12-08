@@ -3,8 +3,8 @@ use core::marker::PhantomData;
 use core::time::Duration;
 
 use embedded_hal::blocking::delay::DelayUs;
-use radio::{BasicInfo, Busy, Channel, Receive, ReceiveInfo, Transmit};
 use radio::modulation::lora::LoRaChannel;
+use radio::{BasicInfo, Busy, Channel, Receive, ReceiveInfo, Transmit};
 use rand_core::RngCore;
 
 pub use crate::radio::rate::*;
@@ -25,15 +25,16 @@ pub struct LoRaRadio<RXTX, TIM, RNG, ERR> {
 }
 
 impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
-    where RXTX: Receive<Error=ERR, Info=INFO>,
-          RXTX: Transmit<Error=ERR>,
-          RXTX: Channel<Channel=CH, Error=ERR>,
-          RXTX: Busy<Error=ERR>,
-          TIM: DelayUs<u32>,
-          RNG: RngCore,
-          ERR: Debug,
-          INFO: Into<LoRaInfo>,
-          CH: From<LoRaChannel>,
+where
+    RXTX: Receive<Error = ERR, Info = INFO>,
+    RXTX: Transmit<Error = ERR>,
+    RXTX: Channel<Channel = CH, Error = ERR>,
+    RXTX: Busy<Error = ERR>,
+    TIM: DelayUs<u32>,
+    RNG: RngCore,
+    ERR: Debug,
+    INFO: Into<LoRaInfo>,
+    CH: From<LoRaChannel>,
 {
     /// The time the radio will have to transmit a message before a timeout occurs.
     const TX_TIMEOUT: Duration = Duration::from_millis(4000);
@@ -80,7 +81,8 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
         #[cfg(feature = "defmt")]
         defmt::trace!("waiting for RX1 window");
         self.radio.set_channel(&rate.rx1(noise).into())?;
-        self.tim.delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
+        self.tim
+            .delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
 
         #[cfg(feature = "defmt")]
         defmt::trace!("receiving on RX1");
@@ -90,7 +92,8 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
                 #[cfg(feature = "defmt")]
                 defmt::trace!("nothing received, waiting for RX2 window");
                 self.radio.set_channel(&rate.rx2(noise).into())?;
-                self.tim.delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
+                self.tim
+                    .delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
 
                 #[cfg(feature = "defmt")]
                 defmt::trace!("receiving on RX2");
@@ -105,10 +108,10 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
                         defmt::trace!("no response");
                         Ok(None)
                     }
-                    Err(error) => Err(error)
+                    Err(error) => Err(error),
                 }
             }
-            Err(error) => Err(error)
+            Err(error) => Err(error),
         }
     }
 
@@ -154,13 +157,17 @@ impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
 
     fn random_u8(&mut self) -> Result<u8, RadioError<ERR>> {
         let mut byte = [0];
-        self.rng.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
+        self.rng
+            .try_fill_bytes(&mut byte)
+            .map_err(RadioError::Random)?;
         Ok(byte[0])
     }
 
     pub(crate) fn random_nonce(&mut self) -> Result<u16, RadioError<ERR>> {
         let mut byte = [0, 0];
-        self.rng.try_fill_bytes(&mut byte).map_err(RadioError::Random)?;
+        self.rng
+            .try_fill_bytes(&mut byte)
+            .map_err(RadioError::Random)?;
         Ok(u16::from_le_bytes(byte))
     }
 }

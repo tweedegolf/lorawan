@@ -30,8 +30,7 @@ impl Region for EU868 {
         Self::DATA_RATES
             .iter()
             .enumerate()
-            .find_map(|(index, other)| (*other == *rate)
-                .then(|| PACKET_SIZE_LIMITS[index]))
+            .find_map(|(index, other)| (*other == *rate).then(|| PACKET_SIZE_LIMITS[index]))
             .unwrap_or_else(|| panic!("Unsupported data rate: {:?}", rate))
     }
 }

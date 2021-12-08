@@ -1,4 +1,4 @@
-use crate::lorawan::{JoinEui, AppKey, AppSKey, DevAddr, DevEui, NwkSEncKey};
+use crate::lorawan::{AppKey, AppSKey, DevAddr, DevEui, JoinEui, NwkSEncKey};
 use crate::radio::{DataRate, Region};
 
 /// Credentials needed to join a device to a network. A device that has not joined a network will
