@@ -10,6 +10,10 @@ use crate::lorawan::PacketError;
 pub const MAX_F_OPTS_LENGTH: usize = 16;
 pub const MAX_FRM_PAYLOAD_LENGTH: usize = 242;
 
+pub trait Write {
+    fn write_to(&self, buf: &mut [u8]) -> usize;
+}
+
 /// Application Unique Identifier
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -19,9 +23,12 @@ impl JoinEui {
     pub const fn new(eui: u64) -> Self {
         JoinEui(eui.to_le_bytes())
     }
+}
 
-    pub fn as_bytes(&self) -> &[u8; 8] {
-        &self.0
+impl Write for JoinEui {
+    fn write_to(&self, buf: &mut [u8]) -> usize {
+        buf[..8].copy_from_slice(&self.0);
+        8
     }
 }
 
@@ -34,9 +41,12 @@ impl DevEui {
     pub const fn new(eui: u64) -> Self {
         DevEui(eui.to_le_bytes())
     }
+}
 
-    pub fn as_bytes(&self) -> &[u8; 8] {
-        &self.0
+impl Write for DevEui {
+    fn write_to(&self, buf: &mut [u8]) -> usize {
+        buf[..8].copy_from_slice(&self.0);
+        8
     }
 }
 
@@ -55,6 +65,21 @@ impl AppKey {
     }
 }
 
+/// Network Key
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct NwkKey([u8; 16]);
+
+impl NwkKey {
+    pub const fn new(key: u128) -> Self {
+        NwkKey(key.to_le_bytes())
+    }
+
+    pub fn as_bytes(&self) -> &[u8; 16] {
+        &self.0
+    }
+}
+
 /// Device Address
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -63,10 +88,6 @@ pub struct DevAddr([u8; 4]);
 impl DevAddr {
     pub const fn new(addr: u32) -> Self {
         DevAddr(addr.to_le_bytes())
-    }
-
-    pub fn from_bytes(bytes: [u8; 4]) -> Self {
-        DevAddr(bytes)
     }
 
     pub fn as_bytes(&self) -> &[u8; 4] {
@@ -84,10 +105,6 @@ impl NwkSEncKey {
         NwkSEncKey(key.to_le_bytes())
     }
 
-    pub fn from_bytes(bytes: [u8; 16]) -> Self {
-        NwkSEncKey(bytes)
-    }
-
     pub fn as_bytes(&self) -> &[u8; 16] {
         &self.0
     }
@@ -101,10 +118,6 @@ pub struct AppSKey([u8; 16]);
 impl AppSKey {
     pub const fn new(key: u128) -> Self {
         AppSKey(key.to_le_bytes())
-    }
-
-    pub fn from_bytes(bytes: [u8; 16]) -> Self {
-        AppSKey(bytes)
     }
 
     pub fn as_bytes(&self) -> &[u8; 16] {
@@ -121,9 +134,12 @@ impl DevNonce {
     pub const fn new(nonce: u16) -> Self {
         DevNonce(nonce.to_le_bytes())
     }
+}
 
-    pub fn as_bytes(&self) -> &[u8; 2] {
-        &self.0
+impl Write for DevNonce {
+    fn write_to(&self, buf: &mut [u8]) -> usize {
+        buf[..2].copy_from_slice(&self.0);
+        2
     }
 }
 
@@ -131,12 +147,6 @@ impl DevNonce {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct JoinNonce([u8; 3]);
-
-impl JoinNonce {
-    pub fn as_bytes(&self) -> &[u8; 3] {
-        &self.0
-    }
-}
 
 /// Marker type for uplinks
 #[derive(Clone, Debug)]
@@ -168,12 +178,23 @@ pub enum PhyPayload<L, R> {
 pub struct MHDR(u8);
 
 impl MHDR {
+    pub fn new(mtype: MType, major: Major) -> Self {
+        MHDR((mtype as u8) << 5 | major as u8)
+    }
+
     pub fn mtype(&self) -> MType {
         MType::from_u8(self.0 >> 5).expect("unsupported message type")
     }
 
     pub fn major(&self) -> Major {
         Major::from_u8(self.0 & 0b11).expect("unsupported major version")
+    }
+}
+
+impl Write for MHDR {
+    fn write_to(&self, buf: &mut [u8]) -> usize {
+        buf[0] = self.0;
+        1
     }
 }
 
@@ -359,6 +380,20 @@ pub struct FRMPayload<L>([u8; MAX_FRM_PAYLOAD_LENGTH], PhantomData<L>);
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Request {
     Join(JoinEui, DevEui, DevNonce),
+}
+
+impl Write for Request {
+    fn write_to(&self, buf: &mut [u8]) -> usize {
+        match self {
+            Request::Join(join_eui, dev_eui, dev_nonce) => {
+                let mut offset = 0;
+                offset += join_eui.write_to(&mut buf[offset..]);
+                offset += dev_eui.write_to(&mut buf[offset..]);
+                offset += dev_nonce.write_to(&mut buf[offset..]);
+                offset
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

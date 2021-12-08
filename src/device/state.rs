@@ -1,4 +1,4 @@
-use crate::lorawan::{AppKey, AppSKey, DevAddr, DevEui, JoinEui, NwkSEncKey};
+use crate::lorawan::{AppKey, AppSKey, DevAddr, DevEui, JoinEui, NwkKey, NwkSEncKey};
 use crate::radio::{DataRate, Region};
 
 /// Credentials needed to join a device to a network. A device that has not joined a network will
@@ -9,18 +9,20 @@ pub struct Credentials {
     app_eui: JoinEui,
     dev_eui: DevEui,
     app_key: AppKey,
+    nwk_key: NwkKey,
 }
 
 impl Credentials {
-    pub fn new(app_eui: JoinEui, dev_eui: DevEui, app_key: AppKey) -> Self {
+    pub fn new(app_eui: JoinEui, dev_eui: DevEui, app_key: AppKey, nwk_key: NwkKey) -> Self {
         Credentials {
             app_eui,
             dev_eui,
             app_key,
+            nwk_key,
         }
     }
 
-    pub fn app_eui(&self) -> &JoinEui {
+    pub fn join_eui(&self) -> &JoinEui {
         &self.app_eui
     }
 
@@ -30,6 +32,10 @@ impl Credentials {
 
     pub fn app_key(&self) -> &AppKey {
         &self.app_key
+    }
+
+    pub fn nwk_key(&self) -> &NwkKey {
+        &self.nwk_key
     }
 }
 

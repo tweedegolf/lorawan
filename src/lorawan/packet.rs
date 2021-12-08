@@ -1,6 +1,8 @@
 use crate::device::{Credentials, DeviceState};
-use crate::lorawan::DevNonce;
+use crate::lorawan::{DevNonce, MType, Major, Request, Write, MHDR};
 use crate::radio::Region;
+use aes::Aes128;
+use cmac::{Cmac, Mac, NewMac};
 
 pub const MAX_PACKET_SIZE: usize = 242;
 
@@ -119,21 +121,25 @@ impl Downlink {
 pub struct JoinRequest([u8; 23]);
 
 impl JoinRequest {
-    pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> Self {
-        // let app_key = (*credentials.app_key().as_bytes()).into();
-        //
-        // let mut phy = JoinRequestCreator::new();
-        // phy.set_app_eui(credentials.app_eui().as_bytes());
-        // phy.set_dev_eui(credentials.dev_eui().as_bytes());
-        // phy.set_dev_nonce(dev_nonce.as_bytes());
-        // // Despite the return type, build cannot fail
-        // let payload = phy.build(&app_key).unwrap();
-        //
-        // let mut buf = [0; 23];
-        // buf.copy_from_slice(payload);
-        //
-        // JoinRequest(buf)
-        todo!()
+    pub fn new(credentials: &Credentials, dev_nonce: &DevNonce) -> JoinRequest {
+        let mhdr = MHDR::new(MType::JoinRequest, Major::LoRaWANR1);
+        // TODO: Use references
+        let request = Request::Join(
+            credentials.join_eui().clone(),
+            credentials.dev_eui().clone(),
+            dev_nonce.clone(),
+        );
+
+        let mut bytes = [0; 23];
+        let mut offset = 0;
+        offset += mhdr.write_to(&mut bytes);
+        offset += request.write_to(&mut bytes[offset..]);
+        let mut mac = Cmac::<Aes128>::new_from_slice(credentials.nwk_key().as_bytes())
+            .expect("failed to create MIC");
+        mac.update(&bytes[..offset]);
+        bytes[offset..].copy_from_slice(&mac.finalize().into_bytes().as_slice()[..4]);
+
+        JoinRequest(bytes)
     }
 
     pub fn payload(&self) -> &[u8] {
@@ -143,16 +149,4 @@ impl JoinRequest {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum PacketError {
-    InvalidDownlinkMACCommand,
-    MICMismatch,
-    InvalidPort(u8),
-    InvalidMACPort,
-    Encoding(&'static str),
-}
-
-impl From<&'static str> for PacketError {
-    fn from(error: &'static str) -> Self {
-        PacketError::Encoding(error)
-    }
-}
+pub enum PacketError {}
