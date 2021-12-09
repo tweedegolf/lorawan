@@ -10,13 +10,14 @@ use crate::device::{Device, DeviceState};
 use crate::lorawan::{Downlink, Uplink};
 use crate::radio::{LoRaInfo, Region};
 
-type TransmitResult<RXTX, TIM, RNG, ERR> =
-    Result<Option<(usize, LoRaInfo)>, DeviceError<RXTX, TIM, RNG, ERR>>;
+type TransmitResult<RXTX, TIM, RNG, ERR, R> =
+    Result<Option<(usize, LoRaInfo)>, DeviceError<RXTX, TIM, RNG, ERR, R>>;
 
+// TODO: Remove?
 #[derive(Debug)]
-pub struct ClassA<RXTX, TIM, RNG, ERR>(Device<RXTX, TIM, RNG, ERR, DeviceState>);
+pub struct ClassA<RXTX, TIM, RNG, ERR, R>(Device<RXTX, TIM, RNG, ERR, DeviceState, R>);
 
-impl<RXTX, TIM, RNG, ERR, INFO, CH> ClassA<RXTX, TIM, RNG, ERR>
+impl<RXTX, TIM, RNG, ERR, INFO, CH, R> ClassA<RXTX, TIM, RNG, ERR, R>
 where
     RXTX: Receive<Error = ERR, Info = INFO>,
     RXTX: Transmit<Error = ERR>,
@@ -27,17 +28,14 @@ where
     ERR: Debug,
     INFO: Into<LoRaInfo>,
     CH: From<LoRaChannel>,
+    R: Region,
 {
     /// Transmits `tx` and waits for an optional response, storing it in `rx` and returning the size
     /// and packet information if applicable. This takes care of encryption and decryption, timing,
     /// and which channels to listen from.
-    pub fn transmit<R: Region>(
-        &mut self,
-        tx: &[u8],
-        rx: &mut [u8],
-    ) -> TransmitResult<RXTX, TIM, RNG, ERR> {
+    pub fn transmit(&mut self, tx: &[u8], rx: &mut [u8]) -> TransmitResult<RXTX, TIM, RNG, ERR, R> {
         let uplink = Uplink::new(tx, 1, &mut self.0.state)?;
-        let downlink = self.0.transmit_raw::<R>(uplink.as_bytes(), rx)?;
+        let downlink = self.0.transmit_raw(uplink.as_bytes(), rx)?;
 
         match downlink {
             None => Ok(None),
@@ -50,10 +48,10 @@ where
     }
 }
 
-impl<RXTX, TIM, RNG, ERR> From<Device<RXTX, TIM, RNG, ERR, DeviceState>>
-    for ClassA<RXTX, TIM, RNG, ERR>
+impl<RXTX, TIM, RNG, ERR, R> From<Device<RXTX, TIM, RNG, ERR, DeviceState, R>>
+    for ClassA<RXTX, TIM, RNG, ERR, R>
 {
-    fn from(device: Device<RXTX, TIM, RNG, ERR, DeviceState>) -> Self {
+    fn from(device: Device<RXTX, TIM, RNG, ERR, DeviceState, R>) -> Self {
         ClassA(device)
     }
 }

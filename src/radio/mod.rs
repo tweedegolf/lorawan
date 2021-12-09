@@ -7,6 +7,7 @@ use radio::modulation::lora::LoRaChannel;
 use radio::{BasicInfo, Busy, Channel, Receive, ReceiveInfo, Transmit};
 use rand_core::RngCore;
 
+use crate::lorawan::{Settings, NEXT_DELAY};
 pub use crate::radio::rate::*;
 pub use crate::radio::region::*;
 
@@ -61,19 +62,30 @@ where
         }
     }
 
-    /// Basic LoRaWAN transmit. It transmits `tx`, then waits for a response on RX1, and if it does
-    /// not receive anything, it waits for a response on RX2. The response is stored in `rx`. If no
-    /// response is received, this method returns a timeout error.
     pub fn lorawan_transmit<R: Region>(
         &mut self,
         tx: &[u8],
         rx: &mut [u8],
-        delay_1: Duration,
-        delay_2: Duration,
         tx_dr: usize,
-        rx1_dr_offset: usize,
-        rx2_dr: usize,
+        settings: &Settings<R>,
     ) -> Result<Option<(usize, LoRaInfo)>, RadioError<ERR>> {
+        self.lorawan_transmit_delayed(tx, rx, tx_dr, settings.rx_delay(), settings)
+    }
+
+    /// Basic LoRaWAN transmit. It transmits `tx`, then waits for a response on RX1, and if it does
+    /// not receive anything, it waits for a response on RX2. The response is stored in `rx`. If no
+    /// response is received, this method returns a timeout error.
+    pub fn lorawan_transmit_delayed<R: Region>(
+        &mut self,
+        tx: &[u8],
+        rx: &mut [u8],
+        tx_dr: usize,
+        delay: Duration,
+        settings: &Settings<R>,
+    ) -> Result<Option<(usize, LoRaInfo)>, RadioError<ERR>> {
+        let rx1_dr = tx_dr + settings.rx1_dr_offset();
+        let rx2_dr = settings.rx2_dr();
+
         #[cfg(feature = "defmt")]
         defmt::trace!("transmitting LoRaWAN packet");
         let noise = self.random_u8()? as usize;
@@ -84,9 +96,9 @@ where
         #[cfg(feature = "defmt")]
         defmt::trace!("waiting for RX1 window");
         self.radio
-            .set_channel(&R::get_data_rate(tx_dr + rx1_dr_offset)?.rx1(noise).into())?;
+            .set_channel(&R::get_data_rate(rx1_dr)?.rx1(noise).into())?;
         self.tim
-            .delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
+            .delay_us((delay - Self::DELAY_MARGIN).as_micros() as u32);
 
         #[cfg(feature = "defmt")]
         defmt::trace!("receiving on RX1");
@@ -98,7 +110,7 @@ where
                 self.radio
                     .set_channel(&R::get_data_rate(rx2_dr)?.rx2(noise).into())?;
                 self.tim
-                    .delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
+                    .delay_us((NEXT_DELAY - Self::RX_TIMEOUT).as_micros() as u32);
 
                 #[cfg(feature = "defmt")]
                 defmt::trace!("receiving on RX2");

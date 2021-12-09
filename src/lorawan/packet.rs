@@ -140,7 +140,11 @@ impl<'a> JoinAccept<'a> {
         Ok(JoinAccept(payload))
     }
 
-    pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> DeviceState {
+    pub fn extract<R>(
+        self,
+        credentials: &Credentials,
+        dev_nonce: &DevNonce,
+    ) -> (DeviceState, Settings<R>) {
         let app_key = (*credentials.app_key().as_bytes()).into();
         let dev_nonce = dev_nonce.as_bytes().into();
 
@@ -151,8 +155,9 @@ impl<'a> JoinAccept<'a> {
         let dev_addr = DevAddr::from_bytes(bytes);
         let nwk_skey = NwkSKey::from_bytes(payload.derive_newskey(&dev_nonce, &app_key).0);
         let app_skey = AppSKey::from_bytes(payload.derive_appskey(&dev_nonce, &app_key).0);
-
         let session = Session::new(dev_addr, nwk_skey, app_skey);
+
+        let state = DeviceState::new(session);
 
         let dl_settings = payload.dl_settings();
         let rx_delay = payload.rx_delay();
@@ -170,7 +175,7 @@ impl<'a> JoinAccept<'a> {
             dl_settings.rx2_data_rate(),
         );
 
-        DeviceState::new(session, settings)
+        (state, settings)
     }
 }
 
