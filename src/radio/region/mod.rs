@@ -1,5 +1,5 @@
-use crate::radio::{DataRate, Hz};
 pub use crate::radio::region::eu868::EU868;
+use crate::radio::{DataRate, Hz};
 
 mod eu868;
 

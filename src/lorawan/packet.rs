@@ -4,8 +4,9 @@ use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
 use lorawan_encoding::maccommands::MacCommand;
 use lorawan_encoding::parser;
-use lorawan_encoding::parser::{DataHeader, DataPayload, EncryptedJoinAcceptPayload, FCtrl,
-                               FRMPayload, MHDRAble, PhyPayload};
+use lorawan_encoding::parser::{
+    DataHeader, DataPayload, EncryptedJoinAcceptPayload, FCtrl, FRMPayload, MHDRAble, PhyPayload,
+};
 
 use crate::device::{Credentials, DeviceState, Session};
 use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
@@ -86,7 +87,7 @@ impl Downlink {
                                         MacCommand::DevStatusReq(_) => {}
                                         MacCommand::NewChannelReq(_) => {}
                                         MacCommand::RXTimingSetupReq(_) => {}
-                                        _ => return Err(PacketError::InvalidDownlinkMACCommand)
+                                        _ => return Err(PacketError::InvalidDownlinkMACCommand),
                                     }
                                 }
                                 todo!()
@@ -102,9 +103,7 @@ impl Downlink {
                             // Reserved
                             todo!()
                         }
-                        port => {
-                            Err(PacketError::InvalidPort(port))
-                        }
+                        port => Err(PacketError::InvalidPort(port)),
                     }
                 }
             }
@@ -171,15 +170,13 @@ impl<'a> JoinAccept<'a> {
         // TODO: Save state
         let rx_delay = payload.rx_delay();
         let dl_settings = payload.dl_settings();
-        let cf_list = payload
-            .c_f_list()
-            .map(|frequencies| frequencies
-                .map(|frequency| {
-                    let mut buf = [0; 4];
-                    buf[1..3].copy_from_slice(frequency.as_ref());
-                    Hz::from_le_bytes(buf)
-                })
-            );
+        let cf_list = payload.c_f_list().map(|frequencies| {
+            frequencies.map(|frequency| {
+                let mut buf = [0; 4];
+                buf[1..3].copy_from_slice(frequency.as_ref());
+                Hz::from_le_bytes(buf)
+            })
+        });
         let net_id = payload.net_id();
 
         DeviceState::new(session)
