@@ -8,8 +8,10 @@ use rand_core::RngCore;
 pub use crate::device::class_a::*;
 use crate::device::error::DeviceError;
 pub use crate::device::state::*;
-use crate::lorawan::{DevNonce, JoinAccept, JoinRequest, Settings, MAX_PACKET_SIZE};
-use crate::radio::{LoRaInfo, LoRaRadio, RadioError, Region};
+use crate::lorawan::{
+    DevNonce, JoinAccept, JoinRequest, Settings, JOIN_ACCEPT_DELAY, MAX_PACKET_SIZE,
+};
+use crate::radio::{LoRaInfo, LoRaRadio, Region};
 
 mod class_a;
 pub mod error;
@@ -62,10 +64,11 @@ where
         let join_request = JoinRequest::new(&self.state, &dev_nonce);
         let mut buf = [0; MAX_PACKET_SIZE];
 
-        match self.radio.lorawan_transmit::<R>(
+        match self.radio.lorawan_transmit_delayed(
             join_request.payload(),
             &mut buf,
             0,
+            JOIN_ACCEPT_DELAY,
             &self.settings,
         )? {
             None => Err(DeviceError::Join(self)),
@@ -114,14 +117,5 @@ where
     /// transmitting an uplink.
     pub fn into_class_a(self) -> ClassA<RXTX, TIM, RNG, ERR, R> {
         self.into()
-    }
-
-    pub fn transmit_raw(
-        &mut self,
-        tx: &[u8],
-        rx: &mut [u8],
-    ) -> Result<Option<(usize, LoRaInfo)>, RadioError<ERR>> {
-        self.radio
-            .lorawan_transmit(tx, rx, self.state.data_rate(), &self.settings)
     }
 }

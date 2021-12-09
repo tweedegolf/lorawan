@@ -36,7 +36,7 @@ impl Credentials {
 #[derive(Debug)]
 pub struct DeviceState {
     session: Session,
-    data_rate: usize,
+    tx_dr: usize,
     fcnt_up: u32,
     fcnt_down: u32,
     adr_ack_cnt: u32,
@@ -46,7 +46,7 @@ impl DeviceState {
     pub fn new(session: Session) -> Self {
         DeviceState {
             session,
-            data_rate: 0,
+            tx_dr: 0,
             fcnt_up: 0,
             fcnt_down: 0,
             adr_ack_cnt: 0,
@@ -57,8 +57,8 @@ impl DeviceState {
         &self.session
     }
 
-    pub fn data_rate(&self) -> usize {
-        self.data_rate
+    pub fn tx_dr(&self) -> usize {
+        self.tx_dr
     }
 
     pub fn fcnt_up(&self) -> u32 {
