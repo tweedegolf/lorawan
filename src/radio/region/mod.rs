@@ -1,5 +1,5 @@
 pub use crate::radio::region::eu868::EU868;
-use crate::radio::{DataRate, Hz};
+use crate::radio::{DataRate, Hz, RadioError};
 
 mod eu868;
 
@@ -14,5 +14,9 @@ pub trait Region: Sized + 'static {
 
     const DATA_RATES: &'static [DataRate<Self>];
 
-    fn packet_size_limit(rate: &DataRate<Self>) -> usize;
+    fn get_data_rate<'a, ERR>(index: usize) -> Result<&'a DataRate<Self>, RadioError<ERR>> {
+        Self::DATA_RATES
+            .get(index)
+            .ok_or(RadioError::UnsupportedDataRate)
+    }
 }

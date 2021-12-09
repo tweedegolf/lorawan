@@ -1,5 +1,3 @@
-#![allow(unused_variables)]
-
 use lorawan_encoding::creator::{DataPayloadCreator, JoinRequestCreator};
 use lorawan_encoding::default_crypto::DefaultFactory;
 use lorawan_encoding::maccommands::MacCommand;
@@ -9,19 +7,15 @@ use lorawan_encoding::parser::{
 };
 
 use crate::device::{Credentials, DeviceState, Session};
-use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey};
-use crate::radio::{Hz, Region};
+use crate::lorawan::{AppSKey, DevAddr, DevNonce, NwkSKey, Settings};
+use crate::radio::Hz;
 
 pub const MAX_PACKET_SIZE: usize = 242;
 
 pub struct Uplink([u8; MAX_PACKET_SIZE], usize);
 
 impl Uplink {
-    pub fn new<R: Region>(
-        payload: &[u8],
-        port: u8,
-        state: &mut DeviceState<R>,
-    ) -> Result<Self, PacketError> {
+    pub fn new(payload: &[u8], port: u8, state: &mut DeviceState) -> Result<Self, PacketError> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -51,10 +45,7 @@ impl Uplink {
 pub struct Downlink([u8; MAX_PACKET_SIZE], usize);
 
 impl Downlink {
-    pub fn from_data<R: Region>(
-        data: &mut [u8],
-        state: &mut DeviceState<R>,
-    ) -> Result<Self, PacketError> {
+    pub fn from_data(data: &mut [u8], state: &mut DeviceState) -> Result<Self, PacketError> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -149,11 +140,7 @@ impl<'a> JoinAccept<'a> {
         Ok(JoinAccept(payload))
     }
 
-    pub fn extract_state<R: Region>(
-        self,
-        credentials: &Credentials,
-        dev_nonce: &DevNonce,
-    ) -> DeviceState<R> {
+    pub fn extract_state(self, credentials: &Credentials, dev_nonce: &DevNonce) -> DeviceState {
         let app_key = (*credentials.app_key().as_bytes()).into();
         let dev_nonce = dev_nonce.as_bytes().into();
 
@@ -167,9 +154,8 @@ impl<'a> JoinAccept<'a> {
 
         let session = Session::new(dev_addr, nwk_skey, app_skey);
 
-        // TODO: Save state
-        let rx_delay = payload.rx_delay();
         let dl_settings = payload.dl_settings();
+        let rx_delay = payload.rx_delay();
         let cf_list = payload.c_f_list().map(|frequencies| {
             frequencies.map(|frequency| {
                 let mut buf = [0; 4];
@@ -177,9 +163,14 @@ impl<'a> JoinAccept<'a> {
                 Hz::from_le_bytes(buf)
             })
         });
-        let net_id = payload.net_id();
 
-        DeviceState::new(session)
+        let settings = Settings::new(
+            rx_delay,
+            dl_settings.rx1_dr_offset(),
+            dl_settings.rx2_data_rate(),
+        );
+
+        DeviceState::new(session, settings)
     }
 }
 

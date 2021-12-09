@@ -70,17 +70,21 @@ where
         rx: &mut [u8],
         delay_1: Duration,
         delay_2: Duration,
-        rate: &DataRate<R>,
+        tx_dr: usize,
+        rx1_dr_offset: usize,
+        rx2_dr: usize,
     ) -> Result<Option<(usize, LoRaInfo)>, RadioError<ERR>> {
         #[cfg(feature = "defmt")]
         defmt::trace!("transmitting LoRaWAN packet");
         let noise = self.random_u8()? as usize;
-        self.radio.set_channel(&rate.tx(noise).into())?;
+        self.radio
+            .set_channel(&R::get_data_rate(tx_dr)?.tx(noise).into())?;
         self.transmit(tx)?;
 
         #[cfg(feature = "defmt")]
         defmt::trace!("waiting for RX1 window");
-        self.radio.set_channel(&rate.rx1(noise).into())?;
+        self.radio
+            .set_channel(&R::get_data_rate(tx_dr + rx1_dr_offset)?.rx1(noise).into())?;
         self.tim
             .delay_us((delay_1 - Self::DELAY_MARGIN).as_micros() as u32);
 
@@ -91,7 +95,8 @@ where
             Err(RadioError::Timeout) => {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("nothing received, waiting for RX2 window");
-                self.radio.set_channel(&rate.rx2(noise).into())?;
+                self.radio
+                    .set_channel(&R::get_data_rate(rx2_dr)?.rx2(noise).into())?;
                 self.tim
                     .delay_us((delay_2 - delay_1 - Self::RX_TIMEOUT).as_micros() as u32);
 
@@ -178,11 +183,12 @@ pub enum RadioError<ERR> {
     Radio(ERR),
     /// Failed to generate a random number.
     Random(rand_core::Error),
+    UnsupportedDataRate,
     Timeout,
 }
 
-impl<E> From<E> for RadioError<E> {
-    fn from(e: E) -> Self {
+impl<ERR> From<ERR> for RadioError<ERR> {
+    fn from(e: ERR) -> Self {
         RadioError::Radio(e)
     }
 }

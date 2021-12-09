@@ -52,13 +52,6 @@ impl<R: Region> DataRate<R> {
     }
 }
 
-impl<R: Region> Default for DataRate<R> {
-    /// Returns DR0 for this region.
-    fn default() -> Self {
-        R::DATA_RATES[0].clone()
-    }
-}
-
 impl<R> Clone for DataRate<R> {
     fn clone(&self) -> Self {
         DataRate {

@@ -24,13 +24,4 @@ impl Region for EU868 {
         DataRate::new(SpreadingFactor::Sf7, 125_000),
         DataRate::new(SpreadingFactor::Sf7, 250_000),
     ];
-
-    fn packet_size_limit(rate: &DataRate<Self>) -> usize {
-        const PACKET_SIZE_LIMITS: [usize; 7] = [51, 51, 51, 115, 222, 222, 222];
-        Self::DATA_RATES
-            .iter()
-            .enumerate()
-            .find_map(|(index, other)| (*other == *rate).then(|| PACKET_SIZE_LIMITS[index]))
-            .unwrap_or_else(|| panic!("Unsupported data rate: {:?}", rate))
-    }
 }
