@@ -15,7 +15,11 @@ pub const MAX_PACKET_SIZE: usize = 242;
 pub struct Uplink([u8; MAX_PACKET_SIZE], usize);
 
 impl Uplink {
-    pub fn new(payload: &[u8], port: u8, state: &mut DeviceState) -> Result<Self, PacketError> {
+    pub fn new<R>(
+        payload: &[u8],
+        port: u8,
+        state: &mut DeviceState<R>,
+    ) -> Result<Self, PacketError> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -45,7 +49,7 @@ impl Uplink {
 pub struct Downlink([u8; MAX_PACKET_SIZE], usize);
 
 impl Downlink {
-    pub fn from_data(data: &mut [u8], state: &mut DeviceState) -> Result<Self, PacketError> {
+    pub fn from_data<R>(data: &mut [u8], state: &mut DeviceState<R>) -> Result<Self, PacketError> {
         let session = state.session();
         let nwk_skey = (*session.nwk_skey().as_bytes()).into();
         let app_skey = (*session.app_skey().as_bytes()).into();
@@ -140,11 +144,11 @@ impl<'a> JoinAccept<'a> {
         Ok(JoinAccept(payload))
     }
 
-    pub fn extract<R>(
+    pub fn extract_state<R>(
         self,
         credentials: &Credentials,
         dev_nonce: &DevNonce,
-    ) -> (DeviceState, Settings<R>) {
+    ) -> DeviceState<R> {
         let app_key = (*credentials.app_key().as_bytes()).into();
         let dev_nonce = dev_nonce.as_bytes().into();
 
@@ -155,9 +159,8 @@ impl<'a> JoinAccept<'a> {
         let dev_addr = DevAddr::from_bytes(bytes);
         let nwk_skey = NwkSKey::from_bytes(payload.derive_newskey(&dev_nonce, &app_key).0);
         let app_skey = AppSKey::from_bytes(payload.derive_appskey(&dev_nonce, &app_key).0);
-        let session = Session::new(dev_addr, nwk_skey, app_skey);
 
-        let state = DeviceState::new(session);
+        let session = Session::new(dev_addr, nwk_skey, app_skey);
 
         let dl_settings = payload.dl_settings();
         let rx_delay = payload.rx_delay();
@@ -175,7 +178,7 @@ impl<'a> JoinAccept<'a> {
             dl_settings.rx2_data_rate(),
         );
 
-        (state, settings)
+        DeviceState::new(session, settings)
     }
 }
 

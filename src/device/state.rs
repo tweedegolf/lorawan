@@ -1,4 +1,4 @@
-use crate::lorawan::{AppEui, AppKey, AppSKey, DevAddr, DevEui, NwkSKey};
+use crate::lorawan::{AppEui, AppKey, AppSKey, DevAddr, DevEui, NwkSKey, Settings};
 
 /// Credentials needed to join a device to a network. A device that has not joined a network will
 /// use this as state.
@@ -34,18 +34,20 @@ impl Credentials {
 
 /// Represents the state of a device that has joined a network.
 #[derive(Debug)]
-pub struct DeviceState {
+pub struct DeviceState<R> {
     session: Session,
+    settings: Settings<R>,
     tx_dr: usize,
     fcnt_up: u32,
     fcnt_down: u32,
     adr_ack_cnt: u32,
 }
 
-impl DeviceState {
-    pub fn new(session: Session) -> Self {
+impl<R> DeviceState<R> {
+    pub fn new(session: Session, settings: Settings<R>) -> Self {
         DeviceState {
             session,
+            settings,
             tx_dr: 0,
             fcnt_up: 0,
             fcnt_down: 0,
@@ -55,6 +57,10 @@ impl DeviceState {
 
     pub fn session(&self) -> &Session {
         &self.session
+    }
+
+    pub fn settings(&self) -> &Settings<R> {
+        &self.settings
     }
 
     pub fn tx_dr(&self) -> usize {

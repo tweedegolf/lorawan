@@ -11,11 +11,11 @@ use crate::device::{Device, DeviceState};
 use crate::lorawan::{Downlink, Uplink};
 use crate::radio::{LoRaInfo, Region};
 
-type TransmitResult<RXTX, TIM, RNG, ERR, R> =
-    Result<Option<(usize, LoRaInfo)>, DeviceError<RXTX, TIM, RNG, ERR, R>>;
+type TransmitResult<RXTX, TIM, RNG, ERR> =
+    Result<Option<(usize, LoRaInfo)>, DeviceError<RXTX, TIM, RNG, ERR>>;
 
 #[derive(Debug)]
-pub struct ClassA<RXTX, TIM, RNG, ERR, R>(Device<RXTX, TIM, RNG, ERR, DeviceState, R>);
+pub struct ClassA<RXTX, TIM, RNG, ERR, R>(Device<RXTX, TIM, RNG, ERR, DeviceState<R>>);
 
 impl<RXTX, TIM, RNG, ERR, INFO, CH, R> ClassA<RXTX, TIM, RNG, ERR, R>
 where
@@ -33,13 +33,13 @@ where
     /// Transmits `tx` and waits for an optional response, storing it in `rx` and returning the size
     /// and packet information if applicable. This takes care of encryption and decryption, timing,
     /// and which channels to listen from.
-    pub fn transmit(&mut self, tx: &[u8], rx: &mut [u8]) -> TransmitResult<RXTX, TIM, RNG, ERR, R> {
+    pub fn transmit(&mut self, tx: &[u8], rx: &mut [u8]) -> TransmitResult<RXTX, TIM, RNG, ERR> {
         let uplink = Uplink::new(tx, 1, &mut self.state)?;
         let downlink = self.0.radio.lorawan_transmit(
             uplink.as_bytes(),
             rx,
             self.0.state.tx_dr(),
-            &self.0.settings,
+            &self.0.state.settings(),
         )?;
 
         match downlink {
@@ -53,16 +53,16 @@ where
     }
 }
 
-impl<RXTX, TIM, RNG, ERR, R> From<Device<RXTX, TIM, RNG, ERR, DeviceState, R>>
+impl<RXTX, TIM, RNG, ERR, R> From<Device<RXTX, TIM, RNG, ERR, DeviceState<R>>>
     for ClassA<RXTX, TIM, RNG, ERR, R>
 {
-    fn from(device: Device<RXTX, TIM, RNG, ERR, DeviceState, R>) -> Self {
+    fn from(device: Device<RXTX, TIM, RNG, ERR, DeviceState<R>>) -> Self {
         ClassA(device)
     }
 }
 
 impl<RXTX, TIM, RNG, ERR, R> Deref for ClassA<RXTX, TIM, RNG, ERR, R> {
-    type Target = Device<RXTX, TIM, RNG, ERR, DeviceState, R>;
+    type Target = Device<RXTX, TIM, RNG, ERR, DeviceState<R>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
