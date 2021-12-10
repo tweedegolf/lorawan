@@ -5,7 +5,8 @@ pub struct AppEui([u8; 8]);
 
 impl AppEui {
     pub const fn new(eui: u64) -> Self {
-        AppEui(eui.to_be_bytes())
+        // TODO: Why are the bytes reversed?
+        AppEui(eui.to_le_bytes())
     }
 
     pub fn as_bytes(&self) -> &[u8; 8] {
@@ -20,7 +21,8 @@ pub struct DevEui([u8; 8]);
 
 impl DevEui {
     pub const fn new(eui: u64) -> Self {
-        DevEui(eui.to_be_bytes())
+        // TODO: Why are the bytes reversed?
+        DevEui(eui.to_le_bytes())
     }
 
     pub fn as_bytes(&self) -> &[u8; 8] {
