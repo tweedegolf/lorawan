@@ -25,6 +25,32 @@ pub struct LoRaRadio<RXTX, TIM, RNG, ERR> {
     err: PhantomData<ERR>,
 }
 
+impl<RXTX, TIM, RNG, ERR> LoRaRadio<RXTX, TIM, RNG, ERR> {
+    pub fn as_radio(&self) -> &RXTX {
+        &self.radio
+    }
+
+    pub fn as_mut_radio(&mut self) -> &mut RXTX {
+        &mut self.radio
+    }
+
+    pub fn as_tim(&self) -> &TIM {
+        &self.tim
+    }
+
+    pub fn as_mut_tim(&mut self) -> &mut TIM {
+        &mut self.tim
+    }
+
+    pub fn as_rng(&self) -> &RNG {
+        &self.rng
+    }
+
+    pub fn as_mut_rng(&mut self) -> &mut RNG {
+        &mut self.rng
+    }
+}
+
 impl<RXTX, TIM, RNG, ERR, INFO, CH> LoRaRadio<RXTX, TIM, RNG, ERR>
 where
     RXTX: Receive<Error = ERR, Info = INFO>,
@@ -50,7 +76,7 @@ where
     const INTERVAL: Duration = Duration::from_millis(100);
 
     /// How much earlier to start listening for a message than `RX1_DELAY` and `RX2_DELAY`.
-    const DELAY_MARGIN: Duration = Duration::from_micros(15);
+    const DELAY_MARGIN: Duration = Duration::from_micros(20);
 
     /// Constructs a new LoRa radio.
     pub fn new(radio: RXTX, tim: TIM, rng: RNG) -> Self {
@@ -91,7 +117,7 @@ where
         let noise = self.random_u8()? as usize;
         self.radio
             .set_channel(&R::get_data_rate(tx_dr)?.tx(noise).into())?;
-        self.transmit(tx)?;
+        self.transmit_raw(tx)?;
 
         #[cfg(feature = "defmt")]
         defmt::trace!("waiting for RX1 window");
@@ -102,7 +128,7 @@ where
 
         #[cfg(feature = "defmt")]
         defmt::trace!("receiving on RX1");
-        match self.receive(rx) {
+        match self.receive_raw(rx) {
             Ok((n, info)) => Ok(Some((n, info))),
             Err(RadioError::Timeout) => {
                 #[cfg(feature = "defmt")]
@@ -114,7 +140,7 @@ where
 
                 #[cfg(feature = "defmt")]
                 defmt::trace!("receiving on RX2");
-                match self.receive(rx) {
+                match self.receive_raw(rx) {
                     Ok((n, info)) => {
                         #[cfg(feature = "defmt")]
                         defmt::trace!("response received");
@@ -133,43 +159,35 @@ where
     }
 
     /// Attempts to transmit a message.
-    fn transmit(&mut self, data: &[u8]) -> Result<(), RadioError<ERR>> {
+    fn transmit_raw(&mut self, data: &[u8]) -> Result<(), RadioError<ERR>> {
         self.radio.start_transmit(data)?;
 
-        let mut time = 0;
-        loop {
+        for _ in 0..Self::TX_TIMEOUT.as_millis() / Self::INTERVAL.as_millis() {
             self.tim.delay_us(Self::INTERVAL.as_micros() as u32);
 
             if self.radio.check_transmit()? {
                 return Ok(());
             }
-
-            time += Self::INTERVAL.as_micros();
-            if time > Self::TX_TIMEOUT.as_micros() {
-                return Err(RadioError::Timeout);
-            }
         }
+
+        Err(RadioError::Timeout)
     }
 
     /// Attempts to receive a message. This returns within one second if no message is being
     /// received, giving enough time to switch to RX2 if necessary.
-    fn receive(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<ERR>> {
+    fn receive_raw(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<ERR>> {
         self.radio.start_receive()?;
 
-        let mut time = 0;
-        loop {
+        for _ in 0..Self::RX_TIMEOUT.as_millis() / Self::INTERVAL.as_millis() {
             self.tim.delay_us(Self::INTERVAL.as_micros() as u32);
 
             if self.radio.check_receive(false)? {
                 let (n, i) = self.radio.get_received(buf)?;
                 return Ok((n, i.into()));
             }
-
-            time += Self::INTERVAL.as_micros();
-            if time > Self::RX_TIMEOUT.as_micros() && !self.radio.is_busy()? {
-                return Err(RadioError::Timeout);
-            }
         }
+
+        Err(RadioError::Timeout)
     }
 
     fn random_u8(&mut self) -> Result<u8, RadioError<ERR>> {

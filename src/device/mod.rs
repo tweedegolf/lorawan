@@ -32,6 +32,16 @@ pub struct Device<RXTX, TIM, RNG, ERR, STATE> {
     state: STATE,
 }
 
+impl<RXTX, TIM, RNG, ERR, STATE> Device<RXTX, TIM, RNG, ERR, STATE> {
+    pub fn as_lora_radio(&self) -> &LoRaRadio<RXTX, TIM, RNG, ERR> {
+        &self.radio
+    }
+
+    pub fn as_mut_lora_radio(&mut self) -> &mut LoRaRadio<RXTX, TIM, RNG, ERR> {
+        &mut self.radio
+    }
+}
+
 impl<RXTX, TIM, RNG, ERR, INFO, CH> Device<RXTX, TIM, RNG, ERR, Credentials>
 where
     RXTX: Receive<Error = ERR, Info = INFO>,
