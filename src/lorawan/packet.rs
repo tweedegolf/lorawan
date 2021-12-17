@@ -167,8 +167,8 @@ impl<'a> JoinAccept<'a> {
         let cf_list = payload.c_f_list().map(|frequencies| {
             frequencies.map(|frequency| {
                 let mut buf = [0; 4];
-                buf[1..3].copy_from_slice(frequency.as_ref());
-                Hz::from_le_bytes(buf)
+                buf[1..].copy_from_slice(frequency.as_ref());
+                Hz::from_be_bytes(buf)
             })
         });
 
