@@ -129,7 +129,11 @@ where
         #[cfg(feature = "defmt")]
         defmt::trace!("receiving on RX1");
         match self.receive_raw(rx) {
-            Ok((n, info)) => Ok(Some((n, info))),
+            Ok((n, info)) => {
+                #[cfg(feature = "defmt")]
+                defmt::trace!("response received");
+                Ok(Some((n, info)))
+            }
             Err(RadioError::Timeout) => {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("nothing received, waiting for RX2 window");

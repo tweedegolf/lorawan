@@ -88,6 +88,9 @@ where
                     state,
                 };
 
+                #[cfg(feature = "defmt")]
+                defmt::trace!("joined successfully");
+
                 Ok(device)
             }
         }

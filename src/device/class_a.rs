@@ -45,6 +45,8 @@ where
         match downlink {
             None => Ok(None),
             Some((n, info)) => {
+                #[cfg(feature = "defmt")]
+                defmt::trace!("received downlink");
                 let downlink = Downlink::from_data(&mut rx[..n], &mut self.state)?;
                 rx.copy_from_slice(downlink.as_bytes());
                 Ok(Some((n, info)))
