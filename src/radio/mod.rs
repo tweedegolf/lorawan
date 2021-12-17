@@ -134,7 +134,7 @@ where
                 #[cfg(feature = "defmt")]
                 defmt::trace!("nothing received, waiting for RX2 window");
                 self.radio
-                    .set_channel(&R::get_data_rate(rx2_dr)?.rx2(noise).into())?;
+                    .set_channel(&R::get_data_rate(rx2_dr)?.rx2().into())?;
                 self.tim
                     .delay_us((NEXT_DELAY - Self::RX_TIMEOUT).as_micros() as u32);
 
@@ -178,16 +178,20 @@ where
     fn receive_raw(&mut self, buf: &mut [u8]) -> Result<(usize, LoRaInfo), RadioError<ERR>> {
         self.radio.start_receive()?;
 
-        for _ in 0..Self::RX_TIMEOUT.as_millis() / Self::INTERVAL.as_millis() {
+        let mut time = 0;
+        loop {
             self.tim.delay_us(Self::INTERVAL.as_micros() as u32);
 
             if self.radio.check_receive(false)? {
                 let (n, i) = self.radio.get_received(buf)?;
                 return Ok((n, i.into()));
             }
-        }
 
-        Err(RadioError::Timeout)
+            time += Self::INTERVAL.as_micros();
+            if time >= Self::RX_TIMEOUT.as_micros() && !self.radio.is_busy()? {
+                return Err(RadioError::Timeout);
+            }
+        }
     }
 
     fn random_u8(&mut self) -> Result<u8, RadioError<ERR>> {

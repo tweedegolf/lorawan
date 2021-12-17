@@ -10,7 +10,7 @@ pub trait Region: Sized + 'static {
 
     const RX1_FREQUENCIES: &'static [Hz];
 
-    const RX2_FREQUENCIES: &'static [Hz];
+    const RX2_FREQUENCY: Hz;
 
     const DATA_RATES: &'static [DataRate<Self>];
 

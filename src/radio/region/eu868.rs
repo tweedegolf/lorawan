@@ -13,7 +13,7 @@ impl Region for EU868 {
 
     const RX1_FREQUENCIES: &'static [Hz] = Self::TX_FREQUENCIES;
 
-    const RX2_FREQUENCIES: &'static [Hz] = &[869_525_000];
+    const RX2_FREQUENCY: Hz = 869_525_000;
 
     const DATA_RATES: &'static [DataRate<Self>] = &[
         DataRate::new(SpreadingFactor::Sf12, 125_000),

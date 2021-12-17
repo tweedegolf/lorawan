@@ -42,9 +42,9 @@ impl<R: Region> DataRate<R> {
         }
     }
 
-    pub fn rx2(&self, noise: usize) -> LoRaChannel {
+    pub fn rx2(&self) -> LoRaChannel {
         LoRaChannel {
-            freq_khz: R::RX2_FREQUENCIES[noise % R::RX2_FREQUENCIES.len()] / 1000,
+            freq_khz: R::RX2_FREQUENCY / 1000,
             bw_khz: (self.frequency / 1000) as u16,
             sf: self.spreading_factor,
             cr: CodingRate::Cr4_5,
