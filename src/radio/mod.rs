@@ -70,13 +70,13 @@ where
     /// radio to receive a preamble, in which case it will continue listening for the message. It
     /// must not exceed one second, because the radio must switch to RX2 within that time if it does
     /// not receive a message on RX1.
-    const RX_TIMEOUT: Duration = Duration::from_millis(500);
+    const RX_TIMEOUT: Duration = Duration::from_millis(800);
 
     /// How often the radio will check whether a message has been sent or received completely.
     const INTERVAL: Duration = Duration::from_millis(100);
 
     /// How much earlier to start listening for a message than `RX1_DELAY` and `RX2_DELAY`.
-    const DELAY_MARGIN: Duration = Duration::from_micros(20);
+    const DELAY_MARGIN: Duration = Duration::from_millis(50);
 
     /// Constructs a new LoRa radio.
     pub fn new(radio: RXTX, tim: TIM, rng: RNG) -> Self {
