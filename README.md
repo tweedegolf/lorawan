@@ -1,4 +1,4 @@
-# lorawan-device
+# lorawan
 
 This is a work-in-progress LoRaWAN device stack. It uses the traits from
 the [radio](https://github.com/rust-iot/radio-hal)
@@ -23,12 +23,6 @@ match device.transmit("hello".as_bytes(), &mut buf).expect("failed to transmit")
     None => println!("no response")
 }
 ```
-
-## Motivation
-
-This library doesn't work yet. For a working alternative, check
-out [ivajloip/rust-lorawan](https://github.com/ivajloip/rust-lorawan). In the future, this library aims to be
-opinionated and easier to use.
 
 ## License
 
